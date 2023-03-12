@@ -26,7 +26,7 @@
     #ifdef CONFIG_IDF_TARGET_ESP32S2
       #define WLED_MAX_BUSSES 5
     #else
-      #define WLED_MAX_BUSSES 10
+      #define WLED_MAX_BUSSES 9 // WLEDSR I2S#0 is reserved for audio (needed both for analog _and_ digital)
     #endif
   #endif
 #endif

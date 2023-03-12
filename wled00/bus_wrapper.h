@@ -772,8 +772,15 @@ class PolyBus {
       #else //ESP32
       uint8_t offset = 0; //0 = RMT (num 0-7) 8 = I2S0 9 = I2S1
       #ifndef CONFIG_IDF_TARGET_ESP32S2
-      if (num > 9) return I_NONE;
-      if (num > 7) offset = num -7;
+
+      #if 1                          // 0..7 = RMT, 8 = I2S#1
+      if (num > 8) return I_NONE;    // WLEDSR 9 instead of 10, as I2S#0 cannot be used for LEDs
+      if (num > 7) offset = 2;       // WLEDSR skip I2S0, use I2S1
+      #else                          // WLEDSR experimental: use I2S#1 for first bus --> less glitches, 10% faster
+      if (num > 8) return I_NONE;    // 0 = I2S#1, 1..8 = RMT
+      if (num == 0) offset = 2;
+      #endif
+
       #else //ESP32 S2 only has 4 RMT channels
       if (num > 5) return I_NONE;
       if (num > 4) offset = num -4;
