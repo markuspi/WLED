@@ -540,7 +540,7 @@ onclick='uploadFile(d.Sf.data2,"/cfg.json")'><br></div><div style="color:#fa0">
 Incorrect configuration may require a factory reset or re-flashing of your ESP.
 </div>For security reasons, passwords are not backed up.<h3>About</h3><a 
 href="https://github.com/atuline/WLED/" target="_blank">WLED</a>
- SR version 0.13.3.7<br><br><a 
+ SR version 0.13.3.8<br><br><a 
 href="https://github.com/atuline/WLED/wiki/Contributors-and-credits" 
 target="_blank">Contributors, dependencies and special thanks</a><br>
 A huge thank you to everyone who helped me create WLED!<br><br>
