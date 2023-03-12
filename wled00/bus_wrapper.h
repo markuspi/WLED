@@ -51,7 +51,7 @@
 #define I_32_RN_TM1_4 26
 #define I_32_I0_TM1_4 27
 #define I_32_I1_TM1_4 28
-//Bit Bang theoratically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
+//Bit Bang theoretically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
 
 //APA102
 #define I_HS_DOT_3 29 //hardware SPI
@@ -132,12 +132,17 @@
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 #define B_32_I1_TM1_4 NeoPixelBrightnessBus<NeoWrgbTm1814Feature, NeoEsp32I2s1Tm1814Method>
 #endif
-//Bit Bang theoratically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
+//Bit Bang theoretically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
 
 #endif
 
 //APA102
-#define B_HS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarSpi5MhzMethod> //hardware SPI
+#ifdef WLED_USE_ETHERNET
+// fix for upstream #2542 (by @BlackBird77)
+#define B_HS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarEsp32DmaHspi5MhzMethod> //hardware HSPI with DMA (ESP32 only)
+#else
+#define B_HS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarSpi5MhzMethod> //hardware HSPI
+#endif
 #define B_SS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarMethod>    //soft SPI
 
 //LPD8806
