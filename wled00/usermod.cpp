@@ -14,7 +14,7 @@ constexpr uint8_t hardwareTX = 1;        // just a constant to improve code read
  */
 
 /*
- * Functions and variable delarations moved to audio_reactive.h
+ * Functions and variable declarations moved to audio_reactive.h
  * Not 100% sure this was done right. There is probably a better way to handle this...
  */
 
@@ -23,7 +23,7 @@ static unsigned long last_UDPTime = 0;    // time of last valid UDP sound sync d
 static float maxSample5sec = 0.0f;        // max sample (after AGC) in last 5 seconds 
 static unsigned long sampleMaxTimer = 0;  // last time maxSample5sec was reset
 static int receivedFormat = 0;            // last received UDP sound sync format - 0=none, 1=v1 (0.13.x), 2=v2 (0.14.x)
-#define CYCLE_SAMPLEMAX 2500              // time window for merasuring
+#define CYCLE_SAMPLEMAX 2500              // time window for measuring
 
 // This gets called once at boot. Do all initialization that doesn't depend on network here
 void userSetup() {
@@ -37,7 +37,7 @@ void userSetup() {
 
   // check if Serial can be used for printing messages
   if  (pinManager.isPinAllocated(hardwareTX)) serialTxAvaileable = false; 
-  if ((pinManager.isPinAllocated(hardwareTX)) && (pinManager.getPinOwner(hardwareTX) == PinOwner::DebugOut)) serialTxAvaileable = true;  // TX availeable for debug
+  if ((pinManager.isPinAllocated(hardwareTX)) && (pinManager.getPinOwner(hardwareTX) == PinOwner::DebugOut)) serialTxAvaileable = true;  // TX available for debug
   if ((dmType > 0) && ((i2ssdPin == hardwareTX) || (i2swsPin == hardwareTX) || (i2sckPin == hardwareTX))) serialTxAvaileable = false;    // i2S pin == TX (stupid but possible ...)
 
   useInputFilter = 0;
@@ -80,7 +80,7 @@ void userSetup() {
       break;
     case 0:
     default:
-      useInputFilter = 1; // usefull as ADC analog is notoriously noisy. Also the filter might reduce signal arterfacts from non-continous sampling
+      useInputFilter = 1; // useful as ADC analog is notoriously noisy. Also the filter might reduce signal artefacts from non-continuous sampling
       if (serialTxAvaileable) Serial.println("AS: Analog Microphone (left channel only).");
       audioSource = new I2SAdcSource(SAMPLE_RATE, BLOCK_SIZE, 0, 0x0FFF);
       break;
@@ -361,7 +361,7 @@ void usermod_updateInfo(void) {
       }
     } else {                                        // error during audio source setup
       strcpy(audioStatusInfo[0], "not initialized");
-      strcpy(audioStatusInfo[1], " - check GPIO config");
+      strcpy(audioStatusInfo[1], " - check pin settings");
     }
   }
   
@@ -400,7 +400,7 @@ void usermod_updateInfo(void) {
   }
 
   bool foundPot = false;
-  if ((dmType == 0) && (audioPin > 0)) { // ADC analog input - warn if Potentimeter is configured
+  if ((dmType == 0) && (audioPin > 0)) { // ADC analog input - warn if Potentiometer is configured
     for (int b=0; b<WLED_MAX_BUTTONS; b++) {
       if ((btnPin[b] >= 0) 
           && (buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) 

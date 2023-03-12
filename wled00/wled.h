@@ -8,8 +8,8 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2302271                // WLEDSR specific version
-#define SR_VERSION_NAME "0.13.3.7"     // WLEDSR version name --> some files need manual updating: package.json, package-lock.json, improv.cpp
+#define VERSION 2303121                // WLEDSR specific version
+#define SR_VERSION_NAME "0.13.3.8"     // WLEDSR version name --> some files need manual updating: package.json, package-lock.json, improv.cpp
 
 #define AC_VERSION 2208222             // AC WLED base version; last updated by PR #239 -> Merge AC-0.13.3 into dev
 #define AC_VERSION_NAME "0.13.3"       // AC WLED base version name; last change 22.August 2022
@@ -750,6 +750,9 @@ WLED_GLOBAL TaskHandle_t FFT_Task; //WLEDSR: Moved from audio_reactive.h to glob
 #endif
 #define WLED_WIFI_CONFIGURED (strlen(clientSSID) >= 1 && strcmp(clientSSID, DEFAULT_CLIENT_SSID) != 0)
 #define WLED_MQTT_CONNECTED (mqtt != nullptr && mqtt->connected())
+
+//macro to convert F to const (needed by some usermods)
+#define SET_F(x)  (const char*)F(x)
 
 //color mangling macros
 #define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
