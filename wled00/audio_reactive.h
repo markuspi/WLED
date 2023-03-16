@@ -588,8 +588,25 @@ static void runMicFilter(uint16_t numSamples, float *sampleBuffer) {          //
 
 // sample smoothing, by using a sliding average FIR highpass filter (first half of MicFilter from above)
 static void runMicSmoothing(uint16_t numSamples, float *sampleBuffer) {
-  constexpr float beta1 = 0.8285;    //  8Khz
-  //constexpr float beta1 = 0.85;    // 10Khz
+  constexpr float beta1 = 0.8285;    //  ~8Khz
+  constexpr float beta2 = (1.0f - beta1) / 2.0;  // note to self: better use biquad ?
+  static float last_vals[2] = { 0.0f }; // FIR filter buffer
+
+  for (int i=0; i < numSamples; i++) {
+    float highFilteredSample;
+    if (i < (numSamples-1)) 
+      highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0] + beta2*sampleBuffer[i+1];  // smooth out spikes
+    else 
+      highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0]  + beta2*last_vals[1];      // spcial handling for last sample in array
+    last_vals[1] = last_vals[0];
+    last_vals[0] = sampleBuffer[i];
+    sampleBuffer[i] = highFilteredSample;
+  }  
+}
+
+// a variation of above, with higher cut-off frequency
+static void runMicSmoothing_v2(uint16_t numSamples, float *sampleBuffer) {
+  constexpr float beta1 = 0.85;    // ~10Khz
   constexpr float beta2 = (1.0f - beta1) / 2.0;  // note to self: better use biquad ?
   static float last_vals[2] = { 0.0f }; // FIR filter buffer
 
@@ -688,11 +705,14 @@ void FFTcode( void * parameter) {
       switch(useInputFilter) {
         case 1: runMicFilter(samplesFFT, vReal); break;                   // PDM microphone bandpass
         case 2: runHighFilter12db(filter30Hz, samplesFFT, vReal); break;  // rejects rumbling noise
-        case 3: runHighFilter12db(filter70Hz, samplesFFT, vReal); break;  // rejects rumbling + mains hum
-        case 4: runHighFilter6db(filter120Hz, samplesFFT, vReal); break;  // rejects everything below 110Hz
-        case 5:
-          runMicSmoothing(samplesFFT, vReal);               // reduce high frequency noise and artefacts
-          runHighFilter6db(filter185Hz, samplesFFT, vReal); // reject low frequency noise
+        case 3: runMicSmoothing_v2(samplesFFT, vReal);                    // slightly reduce high frequency noise and artefacts
+                runHighFilter12db(filter70Hz, samplesFFT, vReal);         // rejects rumbling + mains hum
+          break;
+        case 4: runMicSmoothing_v2(samplesFFT, vReal);                    // slightly reduce high frequency noise and artefacts
+                runHighFilter6db(filter120Hz, samplesFFT, vReal);         // rejects everything below 110Hz
+          break;
+        case 5: runMicSmoothing(samplesFFT, vReal);               // reduce high frequency noise and artefacts
+                runHighFilter6db(filter185Hz, samplesFFT, vReal); // reject low frequency noise
           break;
       }
     }
