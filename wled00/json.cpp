@@ -904,7 +904,7 @@ void serializePalettes(JsonObject root, AsyncWebServerRequest* request)
         if (i < 13) {
           break;
         }
-        byte tcp[72];
+        byte tcp[76] = { 255 };   // WLEDSR bugfix (ensure last entry is always a "stop" marker)
         memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - 13])), 72);
         setPaletteColors(curPalette, tcp);
         break;
