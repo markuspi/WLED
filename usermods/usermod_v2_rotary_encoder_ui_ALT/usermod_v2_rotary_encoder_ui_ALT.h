@@ -339,8 +339,10 @@ public:
       findCurrentEffectAndPalette();
     }
 
-    if (modes_alpha_indexes[effectCurrentIndex] != effectCurrent || palettes_alpha_indexes[effectPaletteIndex] != effectPalette) {
-      currentEffectAndPaletteInitialized = false;
+    if ((modes_alpha_indexes != nullptr) && (palettes_alpha_indexes != nullptr)) {  // WLEDSR bugfix
+      if (modes_alpha_indexes[effectCurrentIndex] != effectCurrent || palettes_alpha_indexes[effectPaletteIndex] != effectPalette) {
+        currentEffectAndPaletteInitialized = false;
+      }
     }
 
     if (currentTime >= (loopTime + 2)) // 2ms since last check of encoder = 500Hz
@@ -429,11 +431,13 @@ public:
 
   void displayNetworkInfo() {
     #ifdef USERMOD_FOUR_LINE_DISPLAY
-    display->networkOverlay(PSTR("NETWORK INFO"), 10000);
+    if (display != nullptr) // WLEDSR bugfix
+      display->networkOverlay(PSTR("NETWORK INFO"), 10000);
     #endif
   }
 
   void findCurrentEffectAndPalette() {
+    if (modes_alpha_indexes == nullptr) return; // WLEDSR bugfix
     currentEffectAndPaletteInitialized = true;
     for (uint8_t i = 0; i < strip.getModeCount(); i++) {
       if (modes_alpha_indexes[i] == effectCurrent) {
@@ -470,7 +474,8 @@ public:
     // 6: fx changed 7: hue 8: preset cycle 9: blynk 10: alexa
     //setValuesFromFirstSelectedSeg(); //to make transition work on main segment (should no longer be required)
     stateUpdated(CALL_MODE_BUTTON);
-    updateInterfaces(CALL_MODE_BUTTON);
+    if ((millis() - lastInterfaceUpdate) > INTERFACE_UPDATE_COOLDOWN)   // WLEDSR respect cooldown times, to avoid crash in AsyncWebSocketMessageBuffer
+      updateInterfaces(CALL_MODE_BUTTON);
   }
 
   void changeBrightness(bool increase) {
@@ -500,7 +505,7 @@ public:
     display->updateRedrawTime();
   #endif
     effectCurrentIndex = max(min((increase ? effectCurrentIndex+1 : effectCurrentIndex-1), strip.getModeCount()-1), 0);
-    effectCurrent = modes_alpha_indexes[effectCurrentIndex];
+    if (modes_alpha_indexes != nullptr) effectCurrent = modes_alpha_indexes[effectCurrentIndex];        // WLEDSR bugfix
     stateChanged = true;
     if (applyToAll) {
       for (byte i=0; i<strip.getMaxSegments(); i++) {

@@ -34,8 +34,8 @@ void WLED::reset()
 
 bool oappendi(int i)
 {
-  char s[11];
-  sprintf(s, "%d", i);
+  char s[16];               // WLEDSR max 32bit integer needs 11 chars (sign + 10) not 10
+  snprintf(s, 15,"%d", i);  // WLEDSR protect against stack corruption
   return oappend(s);
 }
 
@@ -504,6 +504,11 @@ void WLED::setup()
 
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
+  #endif
+  #ifndef WLED_ENABLE_ADALIGHT
+  if (!pinManager.isPinAllocated(1) || (pinManager.getPinOwner(1) == PinOwner::DebugOut)) {
+    Serial.println(F("\nWLED-SR ready."));  // WLEDSR "Ada" will not be printed without Adalight support. So tell users "all good".
+  }
   #endif
 }
 
