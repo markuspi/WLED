@@ -389,11 +389,12 @@ void getSettingsJS(byte subPage, char* dest)
 
     // set limits
     oappend(SET_F("bLimits("));
-#if defined(ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
-    oappend(itoa(WLED_MAX_BUSSES-2,nS,10));  oappend(",");    // WLEDSR: // prevent use of I2S buses, as they are needed for audio input. See https://github.com/blazoncek/WLED/issues/33
-#else 
+    // WLEDSR: special handling not needed any more - see recent changes to bus_wrapper.h
+//#if defined(ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+//    oappend(itoa(WLED_MAX_BUSSES-2,nS,10));  oappend(",");    // WLEDSR: // prevent use of I2S buses, as they are needed for audio input. See https://github.com/blazoncek/WLED/issues/33
+//#else 
     oappend(itoa(WLED_MAX_BUSSES,nS,10));  oappend(",");
-#endif
+//#endif
     oappend(itoa(MAX_LEDS_PER_BUS,nS,10)); oappend(",");
     oappend(itoa(MAX_LED_MEMORY,nS,10)); oappend(",");
     oappend(itoa(MAX_LEDS,nS,10));

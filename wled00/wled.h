@@ -8,7 +8,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2303162                // WLEDSR specific version
+#define VERSION 2303271                // WLEDSR specific version
 #define SR_VERSION_NAME "0.13.3.8"     // WLEDSR version name --> some files need manual updating: package.json, package-lock.json, improv.cpp
 
 #define AC_VERSION 2208222             // AC WLED base version; last updated by PR #239 -> Merge AC-0.13.3 into dev
@@ -325,7 +325,7 @@ WLED_GLOBAL byte apBehavior _INIT(AP_BEHAVIOR_BOOT_NO_CONN);       // access poi
 WLED_GLOBAL IPAddress staticIP      _INIT_N(((  0,   0,  0,  0))); // static IP of ESP
 WLED_GLOBAL IPAddress staticGateway _INIT_N(((  0,   0,  0,  0))); // gateway (router) IP
 WLED_GLOBAL IPAddress staticSubnet  _INIT_N(((255, 255, 255, 0))); // most common subnet in home networks
-#ifdef ARDUINO_ARCH_ESP32
+#if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ESP32_PICO)    // WLEDSR: PICO board gets a bit warm with "disable wifi sleep"
 WLED_GLOBAL bool noWifiSleep _INIT(true);                          // disabling modem sleep modes will increase heat output and power usage, but may help with connection issues
 #else
 WLED_GLOBAL bool noWifiSleep _INIT(false);
@@ -356,10 +356,15 @@ WLED_GLOBAL byte briS     _INIT(128);                     // default brightness
 
 //WLEDSR
 WLED_GLOBAL byte inputLevelS    _INIT(128);         // WLEDSR default inputLevel
+#if !defined(SR_SQUELCH)
 WLED_GLOBAL byte soundSquelch   _INIT(10);          // default squelch value for volume reactive routines
-WLED_GLOBAL byte sampleGain     _INIT(40);           // default sample gain
+WLED_GLOBAL byte sampleGain     _INIT(40);          // default sample gain
 WLED_GLOBAL byte soundAgc       _INIT(0);           // default Automagic gain control
-WLED_GLOBAL uint16_t noiseFloor _INIT(100);         // default squelch value for FFT reactive routines
+#else
+WLED_GLOBAL byte soundSquelch   _INIT(SR_SQUELCH);  // default squelch value
+WLED_GLOBAL byte sampleGain     _INIT(30);          // default sample gain
+WLED_GLOBAL byte soundAgc       _INIT(2);           // squelch was provided - we can enable AGC by default
+#endif
 
 WLED_GLOBAL byte nightlightTargetBri _INIT(0);      // brightness after nightlight is over
 WLED_GLOBAL byte nightlightDelayMins _INIT(60);
