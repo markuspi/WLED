@@ -318,7 +318,7 @@
 #define FX_MODE_WAVESINS               184
 #define FX_MODE_ROCKTAVES              185
 #define FX_MODE_2DAKEMI                186
-#define FX_MODE_CUSTOMEFFECT           187 //WLEDSR Custom Effects
+#define FX_MODE_ARTIFX                 187 //WLEDSR ARTI-FX
 #define FX_MODE_3DRIPPLES              188
 #define FX_MODE_3DSphereMove        189
 
@@ -797,11 +797,11 @@ class WS2812FX {
       _mode[FX_MODE_WAVESINS]                = &WS2812FX::mode_wavesins;
       _mode[FX_MODE_ROCKTAVES]               = &WS2812FX::mode_rocktaves;
       _mode[FX_MODE_2DAKEMI]                 = &WS2812FX::mode_2DAkemi;
-#ifdef USERMOD_CUSTOMEFFECTS
-      _mode[FX_MODE_CUSTOMEFFECT]            = &WS2812FX::mode_customEffect; //WLEDMM Custom Effects
+#ifdef USERMOD_ARTIFX
+      _mode[FX_MODE_ARTIFX]                  = &WS2812FX::mode_ARTIFX; //WLEDMM ARTI-FX
 #endif      
       _mode[FX_MODE_3DRIPPLES]               = &WS2812FX::mode_3DRipples;
-      _mode[FX_MODE_3DSphereMove]         = &WS2812FX::mode_3DSphereMove;
+      _mode[FX_MODE_3DSphereMove]            = &WS2812FX::mode_3DSphereMove;
 
 #ifdef WLEDSR_LARGE
     // _mode[FX_MODE_2DPOOLNOISE]              = &WS2812FX::mode_2DPoolnoise; //code not in fx.cpp
@@ -1165,8 +1165,8 @@ class WS2812FX {
       mode_2DDrift(void),
       mode_2DColoredBursts(void),
       mode_2DJulia(void),
-#ifdef USERMOD_CUSTOMEFFECTS
-      mode_customEffect(void),     //WLEDMM Custom Effects
+#ifdef USERMOD_ARTIFX
+      mode_ARTIFX(void),     //WLEDMM ARTI-FX
 #endif
       mode_3DRipples(void),
       mode_3DSphereMove(void);
@@ -1500,7 +1500,7 @@ const char JSON_mode_names[] PROGMEM = R"=====([
 "Wavesins@Speed,Brightness variation,Starting Color,Range of Colors,Color variation;;!",
 " ♫ Rocktaves@;,!;!",
 " ♫ 2D Akemi@Color speed,Dance ☑;Head palette,Arms & Legs,Eyes & Mouth;Face palette",
-" ⚙️ Custom Effect@Speed,Intensity,Custom 1, Custom 2, Custom 3;!;!",
+" ⚙️ ARTI-FX@Speed,Intensity,Custom 1, Custom 2, Custom 3;!;!",
 "3D Ripples@Speed=128,Interval=128;!;!",
 "3D Sphere Move@Speed=128,Interval=128;!;!",
 " 🎉 audio Popcorn@Gravity=128,Intensity=200;!;!",

@@ -554,7 +554,7 @@ bool ARTI::loop()
 ARTI * arti;
 
 //effect function
-uint16_t WS2812FX::mode_customEffect(void) { 
+uint16_t WS2812FX::mode_ARTIFX(void) { 
   //tbd: move statics to SEGMENT.data
   static bool succesful;
   static bool notEnoughHeap;

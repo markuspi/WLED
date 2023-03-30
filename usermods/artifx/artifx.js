@@ -93,7 +93,7 @@ function populateCEEditor(name, segID)
 {
   fetchAndExecute((loc?`http://${locip}`:'.') + "/", name + ".wled", function(text)
   {
-    var cn=`Custom Effects Editor<br>
+    var cn=`ARTI-FX Editor<br>
             <i>${name}.wled</i><br>
             <textarea class="ceTextarea" id="ceProgramArea">${text}</textarea><br>
             <button class="btn infobtn" onclick="toggleCEEditor()">Close</button>
@@ -102,8 +102,8 @@ function populateCEEditor(name, segID)
             <button class="btn infobtn" onclick="loadCETemplate('${name}')">Load template</button><br>
             <button class="btn infobtn" onclick="downloadCEFile('CE','wledv033.json')">Download wled json</button>
             <button class="btn infobtn" onclick="downloadCEFile('CE','presets.json')">Download presets.json</button><br>
-            <button class="btn infobtn" onclick="location.href='https://github.com/MoonModules/WLED-Effects/tree/master/CustomEffects/wled'" type="button">Custom Effects Library</button>
-            <button class="btn infobtn btn-xs" onclick="location.href='https://mm.kno.wled.ge/moonmodules/custom-effects'" type="button">?</button><br>
+            <button class="btn infobtn" onclick="location.href='https://github.com/MoonModules/WLED-Effects/tree/master/ARTIFX/wled'" type="button">ARTI-FX Library</button>
+            <button class="btn infobtn btn-xs" onclick="location.href='https://mm.kno.wled.ge/moonmodules/arti-fx'" type="button">?</button><br>
             <br><i>Compile and Run Log</i><br>
             <textarea class="ceTextarea" id="ceLogArea"></textarea><br>
             <i>Run log > 3 seconds is send to Serial Ouput.</i><br>
@@ -123,7 +123,7 @@ function populateCEEditor(name, segID)
 }
 
 function downloadCEFile(url, name) {
-    if (url == "CE") url = "https://raw.githubusercontent.com/MoonModules/WLED-Effects/master/CustomEffects/wled/";
+    if (url == "CE") url = "https://raw.githubusercontent.com/MoonModules/WLED-Effects/master/ARTIFX/wled/";
     if (url == "HBB") url = "https://raw.githubusercontent.com/MoonModules/WLED-Effects/master/Presets/HB_PresetPack210808_32x32_16seg/Base%20pack/";
     if (url == "HBE") url = "https://raw.githubusercontent.com/MoonModules/WLED-Effects/master/Presets/HB_PresetPack210808_32x32_16seg/Effects%20pack/";
 
@@ -165,7 +165,7 @@ function downloadCEFile(url, name) {
 function loadCETemplate(name) {
     var ceProgramArea = d.getElementById("ceProgramArea");
     ceProgramArea.value = `/*
-    Custom Effects Template
+    ARTI-FX Template
   */
   program ${name}
   {

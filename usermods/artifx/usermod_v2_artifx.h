@@ -4,7 +4,7 @@
 
 #include "arti_wled.h"
 
-class CustomEffectsUserMod : public Usermod {
+class ARTIFXUserMod : public Usermod {
   private:
     // strings to reduce flash memory usage (used more than twice)
     static const char _name[]; //usermod name
@@ -18,7 +18,7 @@ class CustomEffectsUserMod : public Usermod {
 
     void setup() {
       // if (!initDone)
-      //   strip.addEffect(FX_MODE_CUSTOMEFFECT, &mode_customEffect, _data_FX_MODE_CUSTOMEFFECT);
+      //   strip.addEffect(FX_MODE_ARTIFX, &mode_ARTIFX, _data_FX_MODE_ARTIFX);
       initDone = true;
       enabled = true;
     }
@@ -109,9 +109,9 @@ class CustomEffectsUserMod : public Usermod {
      */
     uint16_t getId()
     {
-      return USERMOD_ID_CUSTOMEFFECTS;
+      return USERMOD_ID_ARTIFX;
     }
 };
 
 // strings to reduce flash memory usage (used more than twice)
-const char CustomEffectsUserMod::_name[]       PROGMEM = "CustomEffects";
+const char ARTIFXUserMod::_name[]       PROGMEM = "ARTIFX";

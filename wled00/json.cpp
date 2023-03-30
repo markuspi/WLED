@@ -107,7 +107,7 @@ void deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (elem["on"].is<const char*>() && elem["on"].as<const char*>()[0] == 't') on = !on;
   seg.setOption(SEG_OPTION_ON, on, id);
 
-  //WLEDSR Custom Effects
+  //WLEDSR ARTI-FX
   bool reset = elem["reset"];
   if (reset)
     strip.setReset(id);

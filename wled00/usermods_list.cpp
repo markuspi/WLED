@@ -128,9 +128,9 @@
 #include "../usermods/Si7021_MQTT_HA/usermod_si7021_mqtt_ha.h"
 #endif
 
-//WLEDMM Custom Effects
-#ifdef USERMOD_CUSTOMEFFECTS
-#include "../usermods/customeffects/usermod_v2_customeffects.h"
+//WLEDMM ARTI-FX
+#ifdef USERMOD_ARTIFX
+#include "../usermods/artifx/usermod_v2_artifx.h"
 #endif
 
 
@@ -250,8 +250,8 @@ void registerUsermods()
   usermods.add(new Si7021_MQTT_HA());
   #endif
 
-  //WLEDMM Custom Effects
-  #ifdef USERMOD_CUSTOMEFFECTS
-  usermods.add(new CustomEffectsUserMod());
+  //WLEDMM ARTI-FX
+  #ifdef USERMOD_ARTIFX
+  usermods.add(new ARTIFXUserMod());
   #endif
 }

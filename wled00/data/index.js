@@ -722,9 +722,9 @@ function populateSegments(s)
           <button class="xxs btn no-margin" id="segd${i}" title="Delete" onclick="delSeg(${i})"><i class="icons no-margin">&#xe037;</i></button>
         </div>`;
 
-        // WLEDSR Custom Effects
+        // WLEDSR ARTI-FX
         if (inst.fx == 187)
-        cn += `<button class="btn" onclick="toggleCEEditor('${inst.n?inst.n:"default"}', ${i})">Custom Effect Editor</button><br>
+        cn += `<button class="btn" onclick="toggleCEEditor('${inst.n?inst.n:"default"}', ${i})">ARTI-FX Editor</button><br>
           </div>
           </div><br>`;
       else

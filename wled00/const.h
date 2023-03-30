@@ -78,7 +78,7 @@
 #define USERMOD_ID_SI7021_MQTT_HA        29     //Usermod "usermod_si7021_mqtt_ha.h"
 #define USERMOD_ID_BME280                30     //Usermod "usermod_bme280.h
 //WLEDMM
-#define USERMOD_ID_CUSTOMEFFECTS         31     //Usermod "usermod_v2_customeffects.h"
+#define USERMOD_ID_ARTIFX                31     //Usermod "usermod_v2_artifx.h"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
