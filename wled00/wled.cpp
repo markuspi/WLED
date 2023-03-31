@@ -8,6 +8,25 @@
 #include "soc/rtc_cntl_reg.h"
 #endif
 
+// special support for some "M5" devices
+#ifdef ARDUINO_M5Stack_ATOM
+  #include <M5Atom.h>
+#endif
+#ifdef ARDUINO_M5Stick_C
+  #undef BLACK    // workaroud for some name clashes with M5 display library
+  #undef WHITE
+  #undef PURPLE
+  #undef BLUE
+  #undef GREEN
+  #undef CYAN
+  #undef RED
+  #undef MAGENTA
+  #undef YELLOW
+  #undef ORANGE
+  #undef PINK
+  #include <M5StickCPlus.h>
+#endif
+
 /*
  * Main WLED class implementation. Mostly initialization and connection logic
  */
@@ -339,6 +358,18 @@ void WLED::setup()
   DEBUG_PRINT(F("esp32 "));
   DEBUG_PRINTLN(ESP.getSdkVersion());
 
+  //M5 devices need a special "begin" to actvate on-board hardware.
+  #if defined(ARDUINO_M5Stack_ATOM)
+  M5.begin(true, false, true);
+  #endif
+  #if defined(ARDUINO_M5Stick_C)
+  M5.begin();
+  M5.Lcd.setRotation(3);
+  M5.Lcd.fillScreen(BLACK);
+  M5.Lcd.setTextColor(WHITE, BLACK);
+  M5.Lcd.println("WLED-SR loading");
+  #endif
+
   // WLEDSR begin
   #if defined(ESP_ARDUINO_VERSION)
     //DEBUG_PRINTF(F("arduino-esp32  0x%06x\n"), ESP_ARDUINO_VERSION);
@@ -548,6 +579,10 @@ void WLED::initAP(bool resetAP)
     strcpy_P(apPass, PSTR(DEFAULT_AP_PASS));
   Serial.print(F("Opening access point "));
   Serial.println(apSSID);
+#ifdef ARDUINO_M5Stick_C
+  M5.Lcd.print(F("AP open: "));
+  M5.Lcd.println(apSSID);
+#endif
   WiFi.softAPConfig(IPAddress(4, 3, 2, 1), IPAddress(4, 3, 2, 1), IPAddress(255, 255, 255, 0));
   WiFi.softAP(apSSID, apPass, apChannel, apHide);
 
@@ -848,6 +883,9 @@ void WLED::handleConnection()
   if (!Network.isConnected()) {
     if (interfacesInited) {
       Serial.println(F("Disconnected!"));
+#ifdef ARDUINO_M5Stick_C
+    M5.Lcd.println(F("Net Disconnected!"));
+#endif
       interfacesInited = false;
       initConnection();
     }
@@ -866,6 +904,12 @@ void WLED::handleConnection()
     DEBUG_PRINTLN("");
     Serial.print(F("Connected! IP address: "));
     Serial.println(Network.localIP());
+#ifdef ARDUINO_M5Stick_C
+    M5.Lcd.println(F("Net Connected!"));
+    M5.Lcd.print(F("IP: "));
+    M5.Lcd.println(Network.localIP());
+#endif
+
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);
