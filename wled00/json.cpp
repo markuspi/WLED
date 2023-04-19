@@ -905,7 +905,14 @@ void serializePalettes(JsonObject root, AsyncWebServerRequest* request)
           break;
         }
         byte tcp[76] = { 255 };   // WLEDSR bugfix (ensure last entry is always a "stop" marker)
-        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - 13])), 72);
+        // WLEDSR workaround for palettes index overflow at i=73 -> gGradientPalettes index=60 out of bounds.
+        int palIndex = i-13;
+        constexpr int palMax = sizeof(gGradientPalettes)/sizeof(gGradientPalettes[0]) -1;
+        if ((palIndex < 0) || (palIndex > palMax)) { 
+            DEBUG_PRINTF("WARNING gGradientPalettes[%d] is out of bounds! max=%d. (json.cpp)\n", palIndex, palMax);
+            palIndex = palMax;  // use last valid array item
+        } // WLEDSR end
+        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[palIndex])), 72);
         setPaletteColors(curPalette, tcp);
         break;
     }
