@@ -463,7 +463,7 @@ US-MST/MDT</option><option value="7">US-AZ</option><option value="8">US-PST/PDT
 </option><option value="15">CA-Saskatchewan</option><option value="16">ACST
 </option><option value="17">ACST/ACDT</option><option value="18">HST (Hawaii)
 </option><option value="19">NOVT (Novosibirsk)</option><option value="20">
-AKST/AKDT (Anchorage)</option><option value="21">MX-CST/CDT</option><option 
+AKST/AKDT (Anchorage)</option><option value="21">MX-CST</option><option 
 value="22">PKT (Pakistan)</option></select><br>UTC offset: <input name="UO" 
 type="number" min="-65500" max="65500" required> seconds (max. 18 hours)<br>
 Current local time is <span class="times">unknown</span>.<br>Latitude: <select 
