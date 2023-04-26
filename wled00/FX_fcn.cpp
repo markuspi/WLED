@@ -1250,7 +1250,7 @@ CRGB IRAM_ATTR WS2812FX::col_to_crgb(uint32_t color)
 void WS2812FX::load_gradient_palette(uint8_t index)
 {
   byte i = constrain(index, 0, GRADIENT_PALETTE_COUNT -1);
-  byte tcp[72]; //support gradient palettes with up to 18 entries
+  byte tcp[76] = {255}; //support gradient palettes with up to 18 entries  // WLEDSR with safety margin
   memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i])), 72);
   targetPalette.loadDynamicGradientPalette(tcp);
 }
