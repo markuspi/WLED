@@ -290,7 +290,7 @@ void IRAM_ATTR WS2812FX::setPixelColor(int i, byte r, byte g, byte b, byte w)
     i += _segments[segIdx].start;
 
     /* Set all the pixels in the group */
-    for (uint16_t j = 0; j < SEGMENT.grouping; j++) {
+    for (uint_fast16_t j = 0; j < SEGMENT.grouping; j++) {
       int indexSet = logicalIndex + (IS_REVERSE ? -j : j);
       if (indexSet >= SEGMENT.start && indexSet < SEGMENT.stop) {
         if (IS_MIRROR) { // set the corresponding mirrored pixel
@@ -445,8 +445,9 @@ uint8_t WS2812FX::getTargetFps() {
 }
 
 void WS2812FX::setTargetFps(uint8_t fps) {
-	if (fps > 0 && fps <= 120) _targetFps = fps;
+	if (fps > 0 && fps <= 250) _targetFps = fps; // WLEDSR accept up to 250 fps target
 	_frametime = 1000 / _targetFps;
+  if (_frametime < 2) _frametime = 2; // WLEDSR 
 }
 
 // Fixes private class variable compiler error. Unsure if this is the correct way of fixing the root problem. -THATDONFC
@@ -1062,7 +1063,7 @@ uint32_t IRAM_ATTR WS2812FX::color_blend(uint32_t color1, uint32_t color2, uint1
  * Fills segment with color
  */
 void WS2812FX::fill(uint32_t c) {
-  for(uint16_t i = 0; i < SEGLEN; i++) {
+  for(uint_fast16_t i = 0; i < SEGLEN; i++) {
     setPixelColor(i, c);
   }
 }
@@ -1086,7 +1087,7 @@ void WS2812FX::fade2black(uint8_t rate) {
 
   mappedRate = mappedRate / 100;
 
-  for(uint16_t i = 0; i < SEGLEN; i++) {
+  for(uint_fast16_t i = 0; i < SEGLEN; i++) {
     color = getPixelColor(i);
     int w1 = W(color);
     int r1 = R(color);
@@ -1115,7 +1116,7 @@ void WS2812FX::fade_out(uint8_t rate) {
   int g2 = G(color);
   int b2 = B(color);
 
-  for(uint16_t i = 0; i < SEGLEN; i++) {
+  for(uint_fast16_t i = 0; i < SEGLEN; i++) {
     color = getPixelColor(i);
     int w1 = W(color);
     int r1 = R(color);
@@ -1145,7 +1146,7 @@ void WS2812FX::blur(uint8_t blur_amount)
   uint8_t keep = 255 - blur_amount;
   uint8_t seep = blur_amount >> 1;
   CRGB carryover = CRGB::Black;
-  for(uint16_t i = 0; i < SEGLEN; i++)
+  for(uint_fast16_t i = 0; i < SEGLEN; i++)
   {
     CRGB cur = col_to_crgb(getPixelColor(i));
     CRGB part = cur;

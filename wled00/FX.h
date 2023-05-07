@@ -77,7 +77,7 @@
 #define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / MAX_NUM_SEGMENTS)
 
 // NEED WORKAROUND TO ACCESS PRIVATE CLASS VARIABLE '_frametime'
-#define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)
+#define MIN_SHOW_DELAY   (_frametime < 16 ? (_frametime <8? (_frametime <7? (_frametime <6 ? 2 :3) :4) : 8) : 15)    // WLEDSR support higher framerates (up to 250fps)
 
 #define NUM_COLORS       3 /* number of colors per segment */
 #define SEGMENT          strip._segments[strip.getCurrSegmentId()]
@@ -1216,8 +1216,8 @@ class WS2812FX {
     uint16_t _usedSegmentData = 0;
     uint16_t _transitionDur = 750;
 
-		uint8_t _targetFps = 42;
-		uint16_t _frametime = (1000/42);
+		uint8_t _targetFps = WLED_FPS;
+		uint16_t _frametime = FRAMETIME_FIXED;
     uint16_t _cumulativeFps = 2;
 
     bool
