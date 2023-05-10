@@ -394,16 +394,16 @@ This firmware build does not include DMX output support.<br></em></div><h3>
 Alexa Voice Assistant</h3><div id="aleOnOff2"><em style="color:#ff8c00">
 This firmware build does not include Alexa support.<br></em></div><div 
 id="aleOnOff">Emulate Alexa device: <input type="checkbox" name="AL"><br>
-Alexa invocation name: <input type="text" name="AI" maxlength="32"></div><h3>
-Blynk</h3><div id="blyOnOff2"><em style="color:#ff8c00">
+Alexa invocation name: <input type="text" name="AI" maxlength="32"></div><br>
+<div id="blyOnOff2"><em style="color:#ff8c00">
 This firmware build does not include Blynk support.<br></em></div><b>
-Blynk, MQTT and Hue sync all connect to external hosts!<br>
+Network protocols like MQTT and Hue sync all connect to external hosts!<br>
 This may impact the responsiveness of the ESP microcontroller.</b><br>
 For best results, only use one of these services at a time.<br>
 (alternatively, connect a second ESP to them and use the UDP sync)<br><br><div 
-id="blyOnOff">Host: <input type="text" name="BH" maxlength="32"> Port: <input 
-name="BP" type="number" min="1" max="65535" value="80" class="d5"><br>
-Device Auth token: <input name="BK" maxlength="33"><br><i>
+id="blyOnOff"><h3>Blynk</h3>Host: <input type="text" name="BH" maxlength="32">
+ Port: <input name="BP" type="number" min="1" max="65535" value="80" class="d5">
+<br>Device Auth token: <input name="BK" maxlength="33"><br><i>
 Clear the token field to disable. </i><a 
 href="https://kno.wled.ge/interfaces/blynk/" target="_blank">Setup info</a>
 </div><h3>MQTT</h3><div id="mqtOnOff2"><em style="color:#ff8c00">
