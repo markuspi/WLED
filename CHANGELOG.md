@@ -1,4 +1,16 @@
-## WLED changelog
+## WLED-SR changelog
+(tbw)
+
+## WLED upstream changelog
+
+### Upstream changes backported to WLED-SR
+-   updated NeoPixelBus to 2.7.1
+-   Fixed APA102 output on Ethernet enabled controllers
+-   Added ability to disable ADAlight (-D WLED_DISABLE_ADALIGHT)
+-   Remove DST from CST timezone
+-   Pakistan time-zone (PKT)
+-   various fixes and enhancements
+-   Removed Blynk support (servers shut down on 31st Dec 2022)
 
 ### WLED release 0.13.3
 
