@@ -565,13 +565,7 @@ void getSettingsJS(byte subPage, char* dest)
     oappend(SET_F("hideALEXA();"));    //WLEDSR: hide Alexa setting if not compiled in
     #endif
     sappends('s',SET_F("BK"),(char*)((blynkEnabled)?SET_F("Hidden"):""));
-    #ifndef WLED_DISABLE_BLYNK
-    sappends('s',SET_F("BH"),blynkHost);
-    sappend('v',SET_F("BP"),blynkPort);
-    oappend(SET_F("hideNoBLYNK();"));  //WLEDSR: hide "not compiled in" message
-    #else
-    oappend(SET_F("hideBLYNK();"));    //WLEDSR: hide BLYNK setting if not compiled in
-    #endif
+    oappend(SET_F("hideBLYNK();"));    //WLEDSR: hide BLYNK setting - supported removed as Blynk service is closed.
     if (!(((audioSyncEnabled)>>(0)) & 1) && !(((audioSyncEnabled)>>(1)) & 1)) {
       // 0 == udp audio sync off
       sappend('v',SET_F("ASE"), 0);

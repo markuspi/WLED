@@ -736,9 +736,6 @@ void serializeInfo(JsonObject root)
   #ifndef WLED_DISABLE_ALEXA
   os += 0x40;
   #endif
-  #ifndef WLED_DISABLE_BLYNK
-  os += 0x20;
-  #endif
   #ifdef USERMOD_CRONIXIE
   os += 0x10;
   #endif

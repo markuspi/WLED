@@ -23,7 +23,7 @@ void notify(byte callMode, bool followUp)
     case CALL_MODE_NIGHTLIGHT:    if (!notifyDirect) return; break;
     case CALL_MODE_HUE:           if (!notifyHue)    return; break;
     case CALL_MODE_PRESET_CYCLE:  if (!notifyDirect) return; break;
-    case CALL_MODE_BLYNK:         if (!notifyDirect) return; break;
+    //case CALL_MODE_BLYNK:         if (!notifyDirect) return; break; // WLEDSR Blynk support removed, as blynk service is closed.
     case CALL_MODE_ALEXA:         if (!notifyAlexa)  return; break;
     default: return;
   }

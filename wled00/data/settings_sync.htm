@@ -151,15 +151,16 @@ Realtime LED offset: <input name="WO" type="number" min="-255" max="255" require
 Emulate Alexa device: <input type="checkbox" name="AL"><br>
 Alexa invocation name: <input type="text" name="AI" maxlength="32">
 </div>
-<h3>Blynk</h3>
+<br />
 <div id="blyOnOff2">
   <em style="color:darkorange">This firmware build does not include Blynk support. <br></em>
 </div>
-<b>Blynk, MQTT and Hue sync all connect to external hosts!<br>
+<b>Network protocols like MQTT and Hue sync all connect to external hosts!<br>
 This may impact the responsiveness of the ESP microcontroller.</b><br> <!-- WLEDSR does not support 8266 -->
 For best results, only use one of these services at a time.<br>
 (alternatively, connect a second ESP to them and use the UDP sync)<br><br>
 <div id="blyOnOff">
+  <h3>Blynk</h3>
   Host: <input type="text" name="BH" maxlength="32">
 Port: <input name="BP" type="number" min="1" max="65535" value="80" class="d5"><br>
 Device Auth token: <input name="BK" maxlength="33"><br>

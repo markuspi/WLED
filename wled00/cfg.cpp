@@ -378,16 +378,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(macroAlexaOn, interfaces["va"]["macros"][0]);
   CJSON(macroAlexaOff, interfaces["va"]["macros"][1]);
 
-#ifndef WLED_DISABLE_BLYNK
-  const char* apikey = interfaces["blynk"][F("token")] | "Hidden";
-  tdd = strnlen(apikey, 36);
-  if (tdd > 20 || tdd == 0)
-    getStringFromJson(blynkApiKey, apikey, 36); //normally not present due to security
-
-  JsonObject if_blynk = interfaces["blynk"];
-  getStringFromJson(blynkHost, if_blynk[F("host")], 33);
-  CJSON(blynkPort, if_blynk["port"]);
-#endif
 
 #ifdef WLED_ENABLE_MQTT
   JsonObject if_mqtt = interfaces["mqtt"];
@@ -840,13 +830,6 @@ void serializeConfig() {
   if_va_macros.add(macroAlexaOn);
   if_va_macros.add(macroAlexaOff);
 
-#ifndef WLED_DISABLE_BLYNK
-  JsonObject if_blynk = interfaces.createNestedObject("blynk");
-  if_blynk[F("token")] = strlen(blynkApiKey) ? "Hidden":"";
-  if_blynk[F("host")] = blynkHost;
-  if_blynk["port"] = blynkPort;
-#endif
-
 #ifdef WLED_ENABLE_MQTT
   JsonObject if_mqtt = interfaces.createNestedObject("mqtt");
   if_mqtt["en"] = mqttEnabled;
@@ -996,13 +979,6 @@ bool deserializeConfigSec() {
 
   JsonObject interfaces = doc["if"];
 
-#ifndef WLED_DISABLE_BLYNK
-  const char* apikey = interfaces["blynk"][F("token")] | "Hidden";
-  int tdd = strnlen(apikey, 36);
-  if (tdd > 20 || tdd == 0)
-    getStringFromJson(blynkApiKey, apikey, 36);
-#endif
-
 #ifdef WLED_ENABLE_MQTT
   JsonObject if_mqtt = interfaces["mqtt"];
   getStringFromJson(mqttPass, if_mqtt["psk"], 65);
@@ -1042,10 +1018,6 @@ void serializeConfigSec() {
   ap["psk"] = apPass;
 
   JsonObject interfaces = doc.createNestedObject("if");
-#ifndef WLED_DISABLE_BLYNK
-  JsonObject if_blynk = interfaces.createNestedObject("blynk");
-  if_blynk[F("token")] = blynkApiKey;
-#endif
 #ifdef WLED_ENABLE_MQTT
   JsonObject if_mqtt = interfaces.createNestedObject("mqtt");
   if_mqtt["psk"] = mqttPass;

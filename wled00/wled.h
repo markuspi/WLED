@@ -8,7 +8,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2305071                // WLEDSR specific version
+#define VERSION 2305101                // WLEDSR specific version
 #define SR_VERSION_NAME "0.13.3.9"     // WLEDSR version name --> some files need manual updating: package.json, package-lock.json, improv.cpp
 
 #define AC_VERSION 2208222             // AC WLED base version; last updated by PR #239 -> Merge AC-0.13.3 into dev
@@ -129,9 +129,6 @@
   #define ESPALEXA_MAXDEVICES 1
   // #define ESPALEXA_DEBUG
   #include "src/dependencies/espalexa/Espalexa.h"
-#endif
-#ifndef WLED_DISABLE_BLYNK
-  #include "src/dependencies/blynk/BlynkSimpleEsp.h"
 #endif
 
 #ifdef WLED_ENABLE_DMX
@@ -418,12 +415,6 @@ WLED_GLOBAL bool notifyTwice  _INIT(false);                       // notificatio
 
 WLED_GLOBAL bool alexaEnabled _INIT(false);                       // enable device discovery by Amazon Echo
 WLED_GLOBAL char alexaInvocationName[33] _INIT("Light");          // speech control name of device. Choose something voice-to-text can understand
-
-#ifndef WLED_DISABLE_BLYNK
-WLED_GLOBAL char blynkApiKey[36] _INIT("");                       // Auth token for Blynk server. If empty, no connection will be made
-WLED_GLOBAL char blynkHost[33] _INIT("blynk-cloud.com");          // Default Blynk host
-WLED_GLOBAL uint16_t blynkPort _INIT(80);                         // Default Blynk port
-#endif
 
 WLED_GLOBAL uint16_t realtimeTimeoutMs _INIT(2500);               // ms timeout of realtime mode before returning to normal mode
 WLED_GLOBAL int arlsOffset _INIT(0);                              // realtime LED offset

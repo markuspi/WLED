@@ -197,11 +197,6 @@ void WLED::loop()
     yield();
     #endif
 
-    #ifndef WLED_DISABLE_BLYNK
-    handleBlynk();
-    yield();
-    #endif
-
     yield();
 
     if (!offMode || strip.isOffRefreshRequired())
@@ -814,9 +809,6 @@ void WLED::initInterfaces()
   if (ntpEnabled)
     ntpConnected = ntpUdp.begin(ntpLocalPort);
 
-#ifndef WLED_DISABLE_BLYNK
-  initBlynk(blynkApiKey, blynkHost, blynkPort);
-#endif
   e131.begin(e131Multicast, e131Port, e131Universe, E131_MAX_UNIVERSE_COUNT);
   ddp.begin(false, DDP_DEFAULT_PORT);
   reconnectHue();

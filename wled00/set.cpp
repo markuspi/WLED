@@ -277,15 +277,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     alexaEnabled = request->hasArg(F("AL"));
     strlcpy(alexaInvocationName, request->arg(F("AI")).c_str(), 33);
 
-    #ifndef WLED_DISABLE_BLYNK
-    strlcpy(blynkHost, request->arg("BH").c_str(), 33);
-    t = request->arg(F("BP")).toInt();
-    if (t > 0) blynkPort = t;
-
-    if (request->hasArg("BK") && !request->arg("BK").equals(F("Hidden"))) {
-      strlcpy(blynkApiKey, request->arg("BK").c_str(), 36); initBlynk(blynkApiKey, blynkHost, blynkPort);
-    }
-    #endif
     t = request->arg(F("ASE")).toInt();
     if (t == 0) {
       // 0 == udp audio sync off
