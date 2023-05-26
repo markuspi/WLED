@@ -449,6 +449,7 @@ void limitSampleDynamics(void) {
 // #define FFT_SPEED_OVER_PRECISION     // enables use of reciprocals (1/x etc), and an a few other speedups - WLEDMM not faster on ESP32
 // #define FFT_SQRT_APPROXIMATION       // enables "quake3" style inverse sqrt                               - WLEDMM slower on ESP32
 #define sqrt(x) sqrtf(x)                // little hack that reduces FFT time by 10-50% on ESP32 (as alternative to FFT_SQRT_APPROXIMATION)
+#define sqrt_internal sqrtf             // see https://github.com/kosme/arduinoFFT/pull/83
 
 #include "arduinoFFT.h"
 
