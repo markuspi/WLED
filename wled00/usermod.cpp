@@ -275,9 +275,15 @@ void userLoop() {
       if (udpSyncConnected) {
         //Serial.println("Checking for UDP Microphone Packet");
         int packetSize = fftUdp.parsePacket();
-        if (packetSize > 6) {  // packet is big enough to contain a t least the header
+
+        if ((packetSize < 6) || (packetSize > UDPSOUND_MAX_PACKET)) { // packet too small or too big -> discard and clean up buffers
+          fftUdp.flush();
+          packetSize = 0;
+        }
+
+        if (packetSize > 6) {  // packet is big enough to contain at least the header
           // Serial.println("Received UDP Sync Packet");
-          uint8_t fftBuff[packetSize];
+          static uint8_t fftBuff[UDPSOUND_MAX_PACKET+1];                              // softhack007: use a static buffer that can hold the biggest expected packet.
           fftUdp.read(fftBuff, packetSize);
           static audioSyncPacket receivedPacket;                                      // softhack007: added "static"
           memcpy(&receivedPacket, fftBuff, MIN(sizeof(receivedPacket), packetSize));  // don't copy more that what fits into audioSyncPacket

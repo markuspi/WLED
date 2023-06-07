@@ -8,7 +8,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2305101                // WLEDSR specific version
+#define VERSION 2306071                // WLEDSR specific version
 #define SR_VERSION_NAME "0.13.3.9"     // WLEDSR version name --> some files need manual updating: package.json, package-lock.json, improv.cpp
 
 #define AC_VERSION 2208222             // AC WLED base version; last updated by PR #239 -> Merge AC-0.13.3 into dev

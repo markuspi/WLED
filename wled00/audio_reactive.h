@@ -196,6 +196,8 @@ struct audioSyncPacket_v2 {
       float  FFT_MajorPeak;   //  04 Bytes
 };
 
+#define UDPSOUND_MAX_PACKET 96 // max packet size for audiosync, with a bit of "headroom"
+
 bool isValidUdpSyncVersion(char header[6]) {
   if (strncmp(header, UDP_SYNC_HEADER, 5) == 0) {
     return true;
