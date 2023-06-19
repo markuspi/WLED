@@ -308,7 +308,7 @@ void userLoop() {
               sampleAvg = receivedPacket.sampleAvg;
 
               // auto-reset sample peak. Need to do it here, because getSample() is not running
-              uint16_t MinShowDelay = strip.getMinShowDelay();
+              uint16_t MinShowDelay = max((uint16_t)33, strip.getMinShowDelay());
               if (millis() - timeOfPeak > MinShowDelay) {   // Auto-reset of samplePeak after a complete frame has passed.
                 samplePeak = 0;
                 udpSamplePeak = 0;

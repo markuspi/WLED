@@ -277,7 +277,7 @@ void getSample() {
   sampleAvg = fabsf(sampleAvg);                          // make sure we have a positive value
 
   // Fixes private class variable compiler error. Unsure if this is the correct way of fixing the root problem. -THATDONFC
-  uint16_t MinShowDelay = strip.getMinShowDelay();
+  uint16_t MinShowDelay = max((uint16_t)33,strip.getMinShowDelay());
 
   if (millis() - timeOfPeak > MinShowDelay) {   // Auto-reset of samplePeak after a complete frame has passed.
     samplePeak = 0;
@@ -508,7 +508,7 @@ static void extract_v2_packet(int packetSize, uint8_t *fftBuff)
     multAgc      = 1.0f;      
 
     // auto-reset sample peak. Need to do it here, because getSample() is not running
-    uint16_t MinShowDelay = strip.getMinShowDelay();
+    uint16_t MinShowDelay = max((uint16_t)33, strip.getMinShowDelay());
     if (millis() - timeOfPeak > MinShowDelay) {   // Auto-reset of samplePeak after a complete frame has passed.
       samplePeak = 0;
       udpSamplePeak = 0;
