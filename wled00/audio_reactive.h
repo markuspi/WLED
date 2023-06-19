@@ -286,7 +286,7 @@ void getSample() {
 
   if (userVar1 == 0) samplePeak = 0;
   // Poor man's beat detection by seeing if sample > Average + some value.
-  if ((maxVol > 1) && (binNum > 4) && (fftBin[binNum] > maxVol) && (millis() - timeOfPeak > 100) && (sampleAvg > 1)) {    // This goes through ALL of the 255 bins - but ignores stupid settings
+  if ((maxVol > 1) && (binNum > 6) && (fftBin[binNum] > maxVol) && (millis() - timeOfPeak > 100) && (sampleAvg > 1)) {    // This goes through ALL of the 255 bins - but ignores stupid settings
   //  if (sample > (sampleAvg + maxVol) && millis() > (peakTime + 200)) {
   // Then we got a peak, else we don't. The peak has to time out on its own in order to support UDP sound sync.
     samplePeak = max(uint8_t(1), samplePeak);   // ignore this peak if we already have an active "good peak"

@@ -5263,15 +5263,19 @@ uint16_t WS2812FX::mode_2DJulia(void) {                           // An animated
 
 uint16_t WS2812FX::mode_2DLissajous(void) {            // By: Andrew Tuline
 
+  uint_fast16_t cols = SEGMENT.width;
+  uint_fast16_t rows = SEGMENT.height;
+  uint_fast16_t phase = (millis() * (1 + SEGMENT.custom3)) /256;  // allow user to control rotation speed
+
   fadeToBlackBy(leds, SEGMENT.intensity);
 
   for (int i=0; i < 256; i ++) {
 
-    uint8_t xlocn = sin8(millis()/2+i*SEGMENT.speed/64);
-    uint8_t ylocn = cos8(millis()/2+i*128/64);
+    uint_fast8_t xlocn = sin8(phase/2 + (i*SEGMENT.speed)/64);
+    uint_fast8_t ylocn = cos8(phase/2 + i*2);
 
-    xlocn = map(xlocn,0,255,0,SEGMENT.width-1);
-    ylocn = map(ylocn,0,255,0,SEGMENT.height-1);
+    xlocn = (cols < 2) ? 1 : (map(2*xlocn, 0,511, 0,2*(cols-1)) +1) /2;    // softhack007: "*2 +1" for proper rounding
+    ylocn = (rows < 2) ? 1 : (map(2*ylocn, 0,511, 0,2*(rows-1)) +1) /2;    // "rows > 2" is needed to avoid div/0 in map()
     leds[XY(xlocn,ylocn)] = ColorFromPalette(currentPalette, millis()/100+i, 255, LINEARBLEND);
   }
 
