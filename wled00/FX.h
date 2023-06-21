@@ -431,7 +431,8 @@ class WS2812FX {
       }
       inline uint16_t length()
       {
-        return (stopX - startX + 1) * (stopY - startY + 1); //WLEDSR: calculate length using SEGMENT x/y. Used by SEGLEN
+        if ((stopX < startX) || (stopY < startY)) return 0;      //WLEDSR: avoid unsigned underflow (stop = 0 is allowed)
+        else return (stopX - startX + 1) * (stopY - startY + 1); //WLEDSR: calculate length using SEGMENT x/y. Used by SEGLEN
       }
       inline uint16_t groupLength()
       {
@@ -440,7 +441,7 @@ class WS2812FX {
       uint16_t virtualLength()
       {
         uint16_t groupLen = groupLength();
-        uint16_t vLength = (length() + groupLen - 1) / groupLen;
+        uint16_t vLength = (groupLen > 0) ? ((length() + groupLen - 1) / groupLen) : 0; //WLEDSR avoid division by zero
         if (options & MIRROR)
           vLength = (vLength + 1) /2;  // divide by 2 if mirror, leave at least a single LED
         return vLength;

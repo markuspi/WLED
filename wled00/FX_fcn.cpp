@@ -168,14 +168,14 @@ void WS2812FX::service() {
           _colors_t[c] = gamma32(_colors_t[c]);
         }
         handle_palette();
-        //WLEDSR: swap width and height if rotated
+        //WLEDSR: swap width and height if rotated  // softhack first check for stop >= start, to avoid underflow
         if (IS_ROTATED2D && stripOrMatrixPanel == 1) {//matrix
-          SEGMENT.height = SEGMENT.stopX - SEGMENT.startX + 1;
-          SEGMENT.width = SEGMENT.stopY - SEGMENT.startY + 1;
+          SEGMENT.height = (SEGMENT.stopX >= SEGMENT.startX) ? (SEGMENT.stopX - SEGMENT.startX + 1) : 0;
+          SEGMENT.width  = (SEGMENT.stopY >= SEGMENT.startY) ? (SEGMENT.stopY - SEGMENT.startY + 1) : 0;
         }
         else {
-          SEGMENT.width = SEGMENT.stopX - SEGMENT.startX + 1;
-          SEGMENT.height = SEGMENT.stopY - SEGMENT.startY + 1;
+          SEGMENT.width  = (SEGMENT.stopX >= SEGMENT.startX) ? (SEGMENT.stopX - SEGMENT.startX + 1) : 0;
+          SEGMENT.height = (SEGMENT.stopY >= SEGMENT.startY) ? (SEGMENT.stopY - SEGMENT.startY + 1) : 0;
         }
         if (_mode[SEGMENT.mode] != nullptr)
           delay = (this->*_mode[SEGMENT.mode])(); //effect function
