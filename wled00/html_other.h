@@ -41,7 +41,7 @@ function B(){window.history.back()}function U(){document.getElementById("uf").st
 %CSS%%SCSS%</head><body onload="GetV()">
 <h2>Sound Reactive WLED Software Update</h2><form method="POST" 
 action="/update" id="uf" enctype="multipart/form-data" onsubmit="U()"><span 
-class="sip">0.13.3.9</span><br>Download the latest release: <a 
+class="sip">0.13.4-beta</span><br>Download the latest release: <a 
 href="https://github.com/atuline/WLED/releases" target="_blank"><img 
 src="https://img.shields.io/github/release/atuline/WLED.svg?style=flat-square">
 </a><br><input type="file" name="update" required><br><button type="submit">
