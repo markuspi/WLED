@@ -1,7 +1,7 @@
 //page js
 var loc = false, locip;
 var noNewSegs = false;
-var isOn = false, nlA = false, isLv = false, isInfo = false, isCEEditor = false, isNodes = false, syncSend = false, syncTglRecv = true;
+var isOn = false, nlA = false, isLv = false, isInfo = false, isNodes = false, syncSend = false, syncTglRecv = true;
 var hasWhite = false, hasRGB = false, hasCCT = false;
 var whites = [0,0,0];
 var colors = [[0,0,0],[0,0,0],[0,0,0]];
@@ -599,8 +599,9 @@ function populateInfo(i)
 	if (i.ver.startsWith("0.13.")) vcn = "Toki+SR";
 	if (i.cn) vcn = i.cn;
 
-	cn += `v${i.ver} "${vcn}"<br><br><table class="infot">
-	${inforow("SR Build",i.vid)}
+	// cn += `v${i.ver} "${vcn}"<br><br><table class="infot">
+  cn += `v${i.ver} &nbsp;<i>"${vcn}"</i><p>(WLEDSR_${i.ver} ${i.rel}.bin)</p><p><em>build ${i.vid}</em></p> <br>
+  <table class="infot">
   <!-- WLEDSR begin-->
   ${inforow("Audio Source",i.audioType,i.audioStatus)}
   ${i.audioWarning?inforow1("<em>Please "+i.audioWarning+"(s) !</em>"):""}
@@ -721,9 +722,9 @@ function populateSegments(s)
           <button class="xxs btn no-margin" id="segd${i}" title="Delete" onclick="delSeg(${i})"><i class="icons no-margin">&#xe037;</i></button>
         </div>`;
 
-        // WLEDSR Custom Effects
+        // WLEDSR ARTI-FX
         if (inst.fx == 187)
-        cn += `<button class="btn" onclick="toggleCEEditor('${inst.n?inst.n:"default"}', ${i})">Custom Effect Editor</button><br>
+        cn += `<button class="btn" onclick="toggleCEEditor('${inst.n?inst.n:"default"}', ${i})">ARTI-FX Editor</button><br>
           </div>
           </div><br>`;
       else
@@ -1665,7 +1666,6 @@ function toggleLiveview() {
 
 function toggleInfo() {
   if (isNodes) toggleNodes();
-  if (isCEEditor) toggleCEEditor();// WLEDSR Custom Effects
 	if (isLv) toggleLiveview();
   isInfo = !isInfo;
   if (isInfo) populateInfo(lastinfo);
@@ -1675,21 +1675,11 @@ function toggleInfo() {
 
 function toggleNodes() {
   if (isInfo) toggleInfo();
-  if (isCEEditor) toggleCEEditor();// WLEDSR Custom Effects
 	if (isLv) toggleLiveview();
   isNodes = !isNodes;
   d.getElementById('nodes').style.transform = (isNodes) ? "translateY(0px)":"translateY(100%)";
   d.getElementById('buttonNodes').className = (isNodes) ? "active":"";
   if (isNodes) loadNodes();
-}
-
-// WLEDSR Custom Effects
-function toggleCEEditor(name, segID) {
-  if (isInfo) toggleInfo();
-  if (isNodes) toggleNodes();
-  isCEEditor = !isCEEditor;
-  if (isCEEditor) populateCEEditor(name, segID);
-  d.getElementById('ceEditor').style.transform = (isCEEditor) ? "translateY(0px)":"translateY(100%)";
 }
 
 function makeSeg() {
@@ -2211,159 +2201,6 @@ function saveP(i,pl) {
   }
   populatePresets();
   resetPUtil();
-}
-
-// WLEDSR Custom Effects
-function fetchAndExecute(name, callback)
-{
-  var url = (loc?`http://${locip}`:'.') + "/" + name;
-
-  fetch
-  (url, {
-    method: 'get'
-  })
-  .then(res => {
-    if (!res.ok) {
-       showToast("File " + name + " not found");
-       return "";
-    }
-    return res.text();
-  })
-  .then(text => {
-    callback(text);
-  })
-  .catch(function (error) {
-    showToast(error, true);
-    console.log(error);
-    presetError(false);
-  })
-  .finally(() => {
-    // if (callback) setTimeout(callback,99);
-  });
-}
-
-// WLEDSR Custom Effects
-function populateCEEditor(name, segID)
-{
-
-  fetchAndExecute(name + ".wled", function(text)
-  {
-    var cn=`<table class="infot"><tr><td>
-            Custom Effects Editor<br>
-            <i>${name}.wled</i><br>
-            <textarea class="ceTextarea" id="ceProgramArea">${text}</textarea>
-            </td></tr></table>
-            <button class="btn infobtn" onclick="toggleCEEditor()">Close</button>
-            <button class="btn infobtn" onclick="saveCE('${name}.wled', ${segID})">Save and Run</button><br>
-            <button class="btn infobtn" onclick="downloadCEFile('${name}.wled')">Download ${name}.wled</button>
-            <button class="btn infobtn" onclick="loadCETemplate('${name}')">Load template</button><br>
-            <button class="btn infobtn" onclick="downloadCEFile('wled.json')">Download wled.json</button>
-            <button class="btn infobtn" onclick="downloadCEFile('presets.json')">Download presets.json</button><br>
-            <a href="https://github.com/MoonModules/WLED-Effects/tree/master/CustomEffects/wled" target="_blank">Custom Effects Library</a><br>
-            <a href="https://github.com/atuline/WLED/wiki/WLED-Custom-effects" target="_blank">Custom Effects Help</a><br>
-            <br><i>Compile and Run Log</i><br>
-            <textarea class="ceTextarea" id="ceLogArea"></textarea><br>
-            <i>Run log > 3 seconds is send to Serial Ouput.</i>`;
-
-    d.getElementById('kceEditor').innerHTML = cn;
-
-    var ceLogArea = d.getElementById("ceLogArea");
-    ceLogArea.value = ".";
-    loadLogFile(name + ".wled.log", 1);
-
-  });
-}
-
-//WLEDSR Custom Effects
-function uploadFileWithText(name, text)
-{
-  var req = new XMLHttpRequest();
-  req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
-  req.addEventListener('error', function(e){showToast(e.stack,true);});
-  req.open("POST", "/upload");
-  var formData = new FormData();
-
-  var blob = new Blob([text], {type : 'application/text'});
-  var fileOfBlob = new File([blob], name);
-  formData.append("upload", fileOfBlob);
-
-  req.send(formData);
-}
-
-//WLEDSR Custom Effects
-function saveCE(name, segID) {
-  showToast("Saving " + name);
-
-  var ceProgramArea = d.getElementById("ceProgramArea");
-
-  uploadFileWithText("/" + name, ceProgramArea.value);
-
-  var obj = {"seg": {"id": segID, "reset": true}};
-  requestJson(obj);
-
-  var ceLogArea = d.getElementById("ceLogArea");
-  ceLogArea.value = ".";
-  setTimeout(() =>
-  {
-    loadLogFile(name + ".log", 1);
-  }, 1000);
-}
-
-function loadLogFile(name, attempt) {
-  var ceLogArea = d.getElementById("ceLogArea");
-  fetchAndExecute(name , function(logtext)
-  {
-    if (logtext == "") {
-      if (attempt < 10) {
-        ceLogArea.value = ("...........").substring(0, attempt + 1);
-        setTimeout(() =>
-        {
-          loadLogFile(name, attempt + 1);
-        }, 1000);
-      }
-      else
-        ceLogArea.value = "log not found after 10 seconds";
-    }
-    else
-      ceLogArea.value = logtext;
-  });
-}
-
-//WLEDSR Custom Effects
-function downloadCEFile(name) {
-  var url = "https://raw.githubusercontent.com/MoonModules/WLED-Effects/master/CustomEffects/wled/" + name;
-
-  var request = new XMLHttpRequest();
-  request.onload = function() {
-    if (name == "wled.json" || name == "presets.json") {
-        if (!confirm('Are you sure to download ' + name + '?'))
-          return;
-        uploadFileWithText("/" + name, request.response);
-    }
-    else
-    {
-      var ceProgramArea = d.getElementById("ceProgramArea");
-      ceProgramArea.value = request.response;
-    }
-  }
-  request.open("GET", url);
-  request.send();
-}
-
-//WLEDSR Custom Effects
-function loadCETemplate(name) {
-  var ceProgramArea = d.getElementById("ceProgramArea");
-  ceProgramArea.value = `/*
-  Custom Effects Template
-*/
-program ${name}
-{
-  function renderFrame()
-  {
-    leds[counter] = colorFromPalette(counter, counter)
-  }
-}`;
-
 }
 
 function testPl(i,bt) {

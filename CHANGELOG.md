@@ -1,4 +1,37 @@
-## WLED changelog
+## WLED-SR changelog
+- upgrade custom effects to ARTI-FX (from MoonModules fork)
+- Audio responsive palettes
+- beat-sensitive effect variants (Palette, Popcorn, Fireworks, Starburst)
+- various effect bugfixes and minor effect improvements
+- 2d Lissajous improvements
+- Allow up to 9 (instead of 8) LED pins
+- better support for some "M5" devices (needs specific firmware build)
+- Preview colors bugfix
+- Segment offset bugfix
+- upgrade to fastLED 3.6.0
+- upgrade to NeoPixelBus 2.7.1
+- woraround for spurious crash in serializePalettes
+- audio input filtering improvements
+- Low-Cut filter for all audio inputs (reduces noise)
+- better handling of analog audio
+- Audio core and FFT optimizations
+- I2S MCLK pin is configurable, sound settings page cleanups
+- Improvements for Line-In I2S boards
+
+(list of bugfixed to be completed)
+
+
+## WLED upstream changelog
+
+### Upstream changes backported to WLED-SR
+-   bugfix for large presets files (>64Kb) 
+-   updated NeoPixelBus to 2.7.1
+-   Fixed APA102 output on Ethernet enabled controllers
+-   Added ability to disable ADAlight (-D WLED_DISABLE_ADALIGHT)
+-   Remove DST from CST timezone
+-   Pakistan time-zone (PKT)
+-   various fixes and enhancements
+-   Removed Blynk support (servers shut down on 31st Dec 2022)
 
 ### WLED release 0.13.3
 

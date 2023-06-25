@@ -24,7 +24,7 @@
     function updatePreview(leds) {
       var str = "linear-gradient(90deg,";
       var len = leds.length;        
-      for (i = 6; i < len; i+=3) {
+      for (i = 8; i < len; i+=3) {
         str += `rgb(${leds[i]},${leds[i+1]},${leds[i+2]})`;
         if (i < len -3) str += ","
       }

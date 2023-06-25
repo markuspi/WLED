@@ -121,6 +121,12 @@ button {
 	font-size: 42px;
 }
 
+/* WLEDSR */
+.tiny {
+	font-size: 14px;
+	color: #aaa;
+}
+
 .infot {
 	table-layout: fixed;
 	width: 100%;
@@ -386,7 +392,7 @@ Effect Speed */
 	transform: translateY(100%);
 	transition: transform 0.4s;
 	padding: 8px;
-	font-size: 20px;
+	font-size: 17px;  /* WLEDSR: smaller is better */
 	overflow: auto;
 }
 
@@ -433,8 +439,7 @@ Effect Speed */
 	margin: 8px;
 }
 
-/* WLEDSR Custom Effects: add kceEditor */
-#kv, #kn, #kceEditor {
+#kv, #kn {
 	max-width: 490px;
 	display: inline-block;
 }
@@ -727,14 +732,6 @@ input[type=number], input[type=text] {
 	width: 50px;
 	-webkit-appearance: textfield;
 					appearance: textfield;
-}
-
-/* WLEDSR Custom Effects */
-.ceTextarea {
-	width: 90%;
-	height: 300px;
-	resize: none;
-	white-space: pre;
 }
 
 textarea {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Wire.h>
 #include "wled.h"
 #include <U8x8lib.h> // from https://github.com/olikraus/u8g2/
 #include "Wire.h"
@@ -26,21 +27,29 @@
 
 //The SCL and SDA pins are defined here.
 #ifdef ARDUINO_ARCH_ESP32
+  #if !defined(HW_PIN_SCL)
   #define HW_PIN_SCL 22
+  #endif
+  #if !defined(HW_PIN_SDA)
   #define HW_PIN_SDA 21
+  #endif
+  #if !defined(HW_PIN_CLOCKSPI)
   #define HW_PIN_CLOCKSPI 18
+  #endif
+  #if !defined(HW_PIN_DATASPI)
   #define HW_PIN_DATASPI 23
+  #endif
   #ifndef FLD_PIN_SCL
-    #define FLD_PIN_SCL 22
+    #define FLD_PIN_SCL HW_PIN_SCL
   #endif
   #ifndef FLD_PIN_SDA
-    #define FLD_PIN_SDA 21
+    #define FLD_PIN_SDA HW_PIN_SDA
   #endif
   #ifndef FLD_PIN_CLOCKSPI
-    #define FLD_PIN_CLOCKSPI 18
+    #define FLD_PIN_CLOCKSPI HW_PIN_CLOCKSPI
   #endif
    #ifndef FLD_PIN_DATASPI
-    #define FLD_PIN_DATASPI 23
+    #define FLD_PIN_DATASPI HW_PIN_DATASPI
   #endif
   #ifndef FLD_PIN_DC
     #define FLD_PIN_DC 19

@@ -51,7 +51,7 @@
 #define I_32_RN_TM1_4 26
 #define I_32_I0_TM1_4 27
 #define I_32_I1_TM1_4 28
-//Bit Bang theoratically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
+//Bit Bang theoretically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
 
 //APA102
 #define I_HS_DOT_3 29 //hardware SPI
@@ -132,12 +132,17 @@
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 #define B_32_I1_TM1_4 NeoPixelBrightnessBus<NeoWrgbTm1814Feature, NeoEsp32I2s1Tm1814Method>
 #endif
-//Bit Bang theoratically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
+//Bit Bang theoretically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
 
 #endif
 
 //APA102
-#define B_HS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarSpi5MhzMethod> //hardware SPI
+#ifdef WLED_USE_ETHERNET
+// fix for upstream #2542 (by @BlackBird77)
+#define B_HS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarEsp32DmaHspi5MhzMethod> //hardware HSPI with DMA (ESP32 only)
+#else
+#define B_HS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarSpi5MhzMethod> //hardware HSPI
+#endif
 #define B_SS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarMethod>    //soft SPI
 
 //LPD8806
@@ -767,8 +772,15 @@ class PolyBus {
       #else //ESP32
       uint8_t offset = 0; //0 = RMT (num 0-7) 8 = I2S0 9 = I2S1
       #ifndef CONFIG_IDF_TARGET_ESP32S2
-      if (num > 9) return I_NONE;
-      if (num > 7) offset = num -7;
+
+      #if 1                          // 0..7 = RMT, 8 = I2S#1
+      if (num > 8) return I_NONE;    // WLEDSR 9 instead of 10, as I2S#0 cannot be used for LEDs
+      if (num > 7) offset = 2;       // WLEDSR skip I2S0, use I2S1
+      #else                          // WLEDSR experimental: use I2S#1 for first bus --> less glitches, 10% faster
+      if (num > 8) return I_NONE;    // 0 = I2S#1, 1..8 = RMT
+      if (num == 0) offset = 2;
+      #endif
+
       #else //ESP32 S2 only has 4 RMT channels
       if (num > 5) return I_NONE;
       if (num > 4) offset = num -4;

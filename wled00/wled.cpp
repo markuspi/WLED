@@ -8,6 +8,25 @@
 #include "soc/rtc_cntl_reg.h"
 #endif
 
+// special support for some "M5" devices
+#ifdef ARDUINO_M5Stack_ATOM
+  #include <M5Atom.h>
+#endif
+#ifdef ARDUINO_M5Stick_C
+  #undef BLACK    // workaroud for some name clashes with M5 display library
+  #undef WHITE
+  #undef PURPLE
+  #undef BLUE
+  #undef GREEN
+  #undef CYAN
+  #undef RED
+  #undef MAGENTA
+  #undef YELLOW
+  #undef ORANGE
+  #undef PINK
+  #include <M5StickCPlus.h>
+#endif
+
 /*
  * Main WLED class implementation. Mostly initialization and connection logic
  */
@@ -34,16 +53,18 @@ void WLED::reset()
 
 bool oappendi(int i)
 {
-  char s[11];
-  sprintf(s, "%d", i);
+  char s[16];               // WLEDSR max 32bit integer needs 11 chars (sign + 10) not 10
+  snprintf(s, 15,"%d", i);  // WLEDSR protect against stack corruption
   return oappend(s);
 }
 
 bool oappend(const char* txt)
 {
   uint16_t len = strlen(txt);
-  if (olen + len >= SETTINGS_STACK_BUF_SIZE)
+  if (olen + len >= SETTINGS_STACK_BUF_SIZE) {
+    DEBUG_PRINTLN(F("oappend() error: buffer full. Increase SETTINGS_STACK_BUF_SIZE.")); // WLEDSR additional debug message
     return false;        // buffer full
+  }
   strcpy(obuf + olen, txt);
   olen += len;
   return true;
@@ -173,11 +194,6 @@ void WLED::loop()
 
     #ifndef WLED_DISABLE_HUESYNC
     handleHue();
-    yield();
-    #endif
-
-    #ifndef WLED_DISABLE_BLYNK
-    handleBlynk();
     yield();
     #endif
 
@@ -322,6 +338,9 @@ void WLED::setup()
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detection
   #endif
 
+  #ifdef ARDUINO_ARCH_ESP32
+  pinMode(RX, INPUT_PULLDOWN); delay(1);        // suppress noise in case RX pin is floating (at low noise energy) - see upstream issue #3128
+  #endif
   Serial.begin(115200);
   Serial.setTimeout(50);
   DEBUG_PRINTLN();
@@ -333,6 +352,18 @@ void WLED::setup()
 #ifdef ARDUINO_ARCH_ESP32
   DEBUG_PRINT(F("esp32 "));
   DEBUG_PRINTLN(ESP.getSdkVersion());
+
+  //M5 devices need a special "begin" to actvate on-board hardware.
+  #if defined(ARDUINO_M5Stack_ATOM)
+  M5.begin(true, false, true);
+  #endif
+  #if defined(ARDUINO_M5Stick_C)
+  M5.begin();
+  M5.Lcd.setRotation(3);
+  M5.Lcd.fillScreen(BLACK);
+  M5.Lcd.setTextColor(WHITE, BLACK);
+  M5.Lcd.println("WLED-SR loading");
+  #endif
 
   // WLEDSR begin
   #if defined(ESP_ARDUINO_VERSION)
@@ -440,7 +471,7 @@ void WLED::setup()
   #ifdef WLED_ENABLE_ADALIGHT
   //Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
   //Serial TX (Debug, Improv, Serial JSON) only possible if GPIO1 unused
-  if (!pinManager.isPinAllocated(3) && !pinManager.isPinAllocated(1)) {
+  if (!pinManager.isPinAllocated(3) && (!pinManager.isPinAllocated(1) || (pinManager.getPinOwner(1) == PinOwner::DebugOut))) {    // WLEDSR allow TX = debugOut
     Serial.println(F("Ada"));
   }
   #endif
@@ -500,6 +531,11 @@ void WLED::setup()
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
   #endif
+  #ifndef WLED_ENABLE_ADALIGHT
+  if (!pinManager.isPinAllocated(1) || (pinManager.getPinOwner(1) == PinOwner::DebugOut)) {
+    Serial.println(F("\nWLED-SR ready."));  // WLEDSR "Ada" will not be printed without Adalight support. So tell users "all good".
+  }
+  #endif
 }
 
 void WLED::beginStrip()
@@ -536,14 +572,18 @@ void WLED::initAP(bool resetAP)
     strcpy_P(apSSID, PSTR("WLED-AP"));
   if (resetAP)
     strcpy_P(apPass, PSTR(DEFAULT_AP_PASS));
-  DEBUG_PRINT(F("Opening access point "));
-  DEBUG_PRINTLN(apSSID);
+  Serial.print(F("Opening access point "));
+  Serial.println(apSSID);
+#ifdef ARDUINO_M5Stick_C
+  M5.Lcd.print(F("AP open: "));
+  M5.Lcd.println(apSSID);
+#endif
   WiFi.softAPConfig(IPAddress(4, 3, 2, 1), IPAddress(4, 3, 2, 1), IPAddress(255, 255, 255, 0));
   WiFi.softAP(apSSID, apPass, apChannel, apHide);
 
   if (!apActive) // start captive portal if AP active
   {
-    DEBUG_PRINTLN(F("Init AP interfaces"));
+    Serial.println(F("Init AP interfaces"));
     server.begin();
     if (udpPort > 0 && udpPort != ntpLocalPort) {
       udpConnected = notifierUdp.begin(udpPort);
@@ -677,7 +717,7 @@ void WLED::initConnection()
   lastReconnectAttempt = millis();
 
   if (!WLED_WIFI_CONFIGURED) {
-    DEBUG_PRINT(F("No connection configured. "));
+    Serial.print(F("No connection configured. "));
     if (!apActive)
       initAP();        // instantly go to ap mode
     return;
@@ -685,16 +725,16 @@ void WLED::initConnection()
     if (apBehavior == AP_BEHAVIOR_ALWAYS) {
       initAP();
     } else {
-      DEBUG_PRINTLN(F("Access point disabled."));
+      Serial.println(F("Access point disabled."));
       WiFi.softAPdisconnect(true);
       WiFi.mode(WIFI_STA);
     }
   }
   showWelcomePage = false;
 
-  DEBUG_PRINT(F("Connecting to "));
-  DEBUG_PRINT(clientSSID);
-  DEBUG_PRINTLN("...");
+  Serial.print(F("Connecting to "));
+  Serial.print(clientSSID);
+  Serial.println("...");
 
   // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
   char hostname[25] = "wled-";
@@ -769,9 +809,6 @@ void WLED::initInterfaces()
   if (ntpEnabled)
     ntpConnected = ntpUdp.begin(ntpLocalPort);
 
-#ifndef WLED_DISABLE_BLYNK
-  initBlynk(blynkApiKey, blynkHost, blynkPort);
-#endif
   e131.begin(e131Multicast, e131Port, e131Universe, E131_MAX_UNIVERSE_COUNT);
   ddp.begin(false, DDP_DEFAULT_PORT);
   reconnectHue();
@@ -828,7 +865,7 @@ void WLED::handleConnection()
     }
   }
   if (forceReconnect) {
-    DEBUG_PRINTLN(F("Forcing reconnect."));
+    Serial.print(F("Forcing reconnect."));
     initConnection();
     interfacesInited = false;
     forceReconnect = false;
@@ -837,7 +874,10 @@ void WLED::handleConnection()
   }
   if (!Network.isConnected()) {
     if (interfacesInited) {
-      DEBUG_PRINTLN(F("Disconnected!"));
+      Serial.println(F("Disconnected!"));
+#ifdef ARDUINO_M5Stick_C
+    M5.Lcd.println(F("Net Disconnected!"));
+#endif
       interfacesInited = false;
       initConnection();
     }
@@ -854,8 +894,14 @@ void WLED::handleConnection()
       initAP();
   } else if (!interfacesInited) { //newly connected
     DEBUG_PRINTLN("");
-    DEBUG_PRINT(F("Connected! IP address: "));
-    DEBUG_PRINTLN(Network.localIP());
+    Serial.print(F("Connected! IP address: "));
+    Serial.println(Network.localIP());
+#ifdef ARDUINO_M5Stick_C
+    M5.Lcd.println(F("Net Connected!"));
+    M5.Lcd.print(F("IP: "));
+    M5.Lcd.println(Network.localIP());
+#endif
+
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);
@@ -870,7 +916,7 @@ void WLED::handleConnection()
       dnsServer.stop();
       WiFi.softAPdisconnect(true);
       apActive = false;
-      DEBUG_PRINTLN(F("Access point disabled."));
+      Serial.println(F("Access point disabled."));
     }
   }
 }

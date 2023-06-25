@@ -10,12 +10,13 @@
 
   </p>
 
-# Stable Branch
-This is the SR `master` branch - the source code for our latest release version [SR WLED v0.13.3](https://github.com/atuline/WLED/releases/tag/v0.13.3).
+# Development Branch
+
+This is the SR `dev`elopment branch, where we test new features and enhancements. The code may or may not work - it is work in progress.
 
 - For ESP32 devices (8266 no longer supported)
-- *This* branch (`master`) can be a stable baseline for your own project. Use it.
-- *Pull Requests* should be created against our [`dev`elopment branch](https://github.com/atuline/WLED/tree/dev).
+- *Pull Requests* should be created against this `dev` branch.
+- If you are looking for a stable baseline for your own project, please use the released source code from [`master` branch](https://github.com/atuline/WLED/tree/master)
 
 
 

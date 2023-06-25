@@ -201,7 +201,7 @@ void initServer()
     //init ota page
     #ifndef WLED_DISABLE_OTA
     server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send_P(200, "text/html", PAGE_update);
+      serveSettings(request); //WLEDSR: 0.14 style
     });
 
     server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request){
@@ -388,7 +388,7 @@ void serveMessage(AsyncWebServerRequest* request, uint16_t code, const String& h
 String settingsProcessor(const String& var)
 {
   if (var == "CSS") {
-    char buf[SETTINGS_STACK_BUF_SIZE];
+    char buf[SETTINGS_STACK_BUF_SIZE] = { '\0' }; // WLEDSR ensure buffer is cleared initially
     buf[0] = 0;
     getSettingsJS(optionType, buf);
     //Serial.println(uxTaskGetStackHighWaterMark(NULL));
@@ -444,7 +444,9 @@ void serveSettings(AsyncWebServerRequest* request, bool post)
     #endif
     else if (url.indexOf("um")   > 0) subPage = 8;
     else if (url.indexOf("sound")> 0) subPage = 9;  // add sound settings page
-  } else subPage = 255; //welcome page
+  } 
+  else if (url.indexOf("/update") >= 0) subPage = 10; // WLEDSR 0.14 style. update page, for PIN check
+  else subPage = 255; //welcome page
 
   if (subPage == 1 && wifiLock && otaLock)
   {
@@ -495,6 +497,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post)
     case 7:   request->send_P(200, "text/html", PAGE_settings_dmx  , settingsProcessor); break;
     case 8:   request->send_P(200, "text/html", PAGE_settings_um   , settingsProcessor); break;
     case 9:   request->send_P(200, "text/html", PAGE_settings_sound, settingsProcessor); break;  // add sound settings page
+    case 10:  request->send_P(200, "text/html", PAGE_update, settingsProcessor); break;  // WLEDSR add update settings page
     case 255: request->send_P(200, "text/html", PAGE_welcome); break;
     default:  request->send_P(200, "text/html", PAGE_settings     , settingsProcessor);
   }

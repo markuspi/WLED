@@ -1,7 +1,6 @@
 /*
    @title   Arduino Real Time Interpreter (ARTI)
-   @file    arti_wled_plugin.h
-   @version 0.3.1
+   @file    arti_wled.h
    @date    20220818
    @author  Ewoud Wijma
    @repo    https://github.com/ewoudwijma/ARTI
@@ -21,10 +20,10 @@
 
 #if ARTI_PLATFORM == ARTI_ARDUINO
   #include "arti.h"
-//  #include "FX.h"
   extern float sampleAvg;
   extern float sampleAgc;
   extern byte soundAgc;
+  extern uint8_t *fftResult;
 #else
   #include "../arti.h"
   #include <string.h>
@@ -32,15 +31,14 @@
   #include <stdio.h>
 #endif
 
-//make sure the numbers here correspond to the order in which these functions are defined in wled.json!!
+//make sure the numbers here correspond to the order in which these functions are defined in wled000.json!!
 enum Externals
 {
   F_ledCount,
-  F_matrixWidth,
-  F_matrixHeight,
+  F_width,
+  F_height,
   F_setPixelColor,
   F_leds,
-  F_setPixels,
   F_hsv,
   F_rgbw,
 
@@ -61,10 +59,13 @@ enum Externals
   F_custom1Slider,
   F_custom2Slider,
   F_custom3Slider,
-  F_sampleAvg,
+  F_volume,
+  F_fftResult,
 
   F_shift,
   F_circle2D,
+  F_drawLine,
+  F_drawArc,
 
   F_constrain,
   F_map,
@@ -92,102 +93,74 @@ enum Externals
 };
 
 #if ARTI_PLATFORM != ARTI_ARDUINO
-  class WS2812FX {
-  public:
-    uint16_t matrixWidth = 16, matrixHeight = 16;
-
-    uint16_t XY(uint16_t x, uint16_t y)
-    {
-      return x%matrixWidth + y%matrixHeight * matrixWidth;
-    }
-
-    uint32_t millis()
-    {
-      return 1000; // no millis defined for non embedded yet
-    }
-
-    float arti_external_function(uint8_t function, float par1 = floatNull, float par2 = floatNull, float par3 = floatNull, float par4 = floatNull, float par5 = floatNull);
-    float arti_get_external_variable(uint8_t variable, float par1 = floatNull, float par2 = floatNull, float par3 = floatNull);
-    void arti_set_external_variable(float value, uint8_t variable, float par1 = floatNull, float par2 = floatNull, float par3 = floatNull);
-  }; //class WS2812FX
-
-  WS2812FX strip = WS2812FX();
-
   #define PI 3.141592654
-
 #endif
 
 float ARTI::arti_external_function(uint8_t function, float par1, float par2, float par3, float par4, float par5)
 {
-  return strip.arti_external_function(function, par1, par2, par3, par4, par5);
-}
-
-float ARTI::arti_get_external_variable(uint8_t variable, float par1, float par2, float par3)
-{
-  return strip.arti_get_external_variable(variable, par1, par2, par3);
-}
-
-void ARTI::arti_set_external_variable(float value, uint8_t variable, float par1, float par2, float par3)
-{
-  strip.arti_set_external_variable(value, variable, par1, par2, par3);
-}
-
-float WS2812FX::arti_external_function(uint8_t function, float par1, float par2, float par3, float par4, float par5) { 
   // MEMORY_ARTI("fun %d(%f, %f, %f)\n", function, par1, par2, par3);
   #if ARTI_PLATFORM == ARTI_ARDUINO
     switch (function) {
       case F_setPixelColor: {
         if (par3 == floatNull)
-          setPixelColor(((uint16_t)par1)%SEGLEN, (uint32_t)par2);
+          strip.setPixelColor(((uint16_t)par1)%SEGLEN, (uint32_t)par2);
         else
-          setPixelColor(XY((uint16_t)par1, (uint16_t)par2), (uint32_t)par3);
+          strip.setPixelColor(strip.XY((uint16_t)par1, (uint16_t)par2), (uint32_t)par3);
         return floatNull;
       }
-      case F_setPixels:
-        setPixels(leds);
-        return floatNull;
       case F_hsv:
-        return crgb_to_col(CHSV((uint8_t)par1, (uint8_t)par2, (uint8_t)par3));
+      {
+        CRGB color = CHSV((uint8_t)par1, (uint8_t)par2, (uint8_t)par3);
+        return RGBW32(color.r, color.g, color.b, 0);
+      }
       case F_rgbw:
         return RGBW32((uint8_t)par1, (uint8_t)par2, (uint8_t)par3, (uint8_t)par4);
+
       case F_setRange: {
-        setRange((uint16_t)par1, (uint16_t)par2, (uint32_t)par3);
+        strip.setRange((uint16_t)par1, (uint16_t)par2, (uint32_t)par3);
         return floatNull;
       }
       case F_fill: {
-        fill((uint32_t)par1);
+        strip.fill((uint32_t)par1);
         return floatNull;
       }
       case F_colorBlend:
-        return color_blend((uint32_t)par1, (uint32_t)par2, (uint16_t)par3);
+        return strip.color_blend((uint32_t)par1, (uint32_t)par2, (uint16_t)par3);
       case F_colorWheel:
-        return color_wheel((uint8_t)par1);
-      case F_colorFromPalette:
+        return strip.color_wheel((uint8_t)par1);
+      case F_colorFromPalette: 
+      {
+        CRGB color;
         if (par2 == floatNull)
-          return crgb_to_col(ColorFromPalette(currentPalette, (uint8_t)par1));
+          color = ColorFromPalette(strip.currentPalette, (uint8_t)par1);
         else
-          return crgb_to_col(ColorFromPalette(currentPalette, (uint8_t)par1, (uint8_t)par2)); //brightness
+          color = ColorFromPalette(strip.currentPalette, (uint8_t)par1, (uint8_t)par2); //brightness
+        return RGBW32(color.r, color.g, color.b, 0);
+      }
       case F_beatSin:
         return beatsin8((uint8_t)par1, (uint8_t)par2, (uint8_t)par3, (uint8_t)par4, (uint8_t)par5);
       case F_fadeToBlackBy:
-        fadeToBlackBy(leds, (uint8_t)par1);
+        strip.fade2black((uint8_t)par1);
         return floatNull;
       case F_iNoise:
         return inoise16((uint32_t)par1, (uint32_t)par2);
       case F_fadeOut:
-        fade_out((uint8_t)par1);
+        strip.fade_out((uint8_t)par1);
         return floatNull;
 
       case F_segcolor:
         return SEGCOLOR((uint8_t)par1);
 
+      case F_fftResult:
+          return fftResult[(uint8_t)par1%16];
+
       case F_shift: {
-        uint32_t saveFirstPixel = getPixelColor(0);
+        uint32_t saveFirstPixel = strip.getPixelColor(0);
         for (uint16_t i=0; i<SEGLEN-1; i++)
         {
-          setPixelColor(i, getPixelColor((uint16_t)(i + par1)%SEGLEN));
+          strip.setPixelColor(i, strip.getPixelColor((uint16_t)(i + par1)%SEGLEN));
         }
-        setPixelColor(SEGLEN - 1, saveFirstPixel);
+        strip.setPixelColor(SEGLEN - 1, saveFirstPixel);
         return floatNull;
       }
       case F_circle2D: {
@@ -206,7 +179,15 @@ float WS2812FX::arti_external_function(uint8_t function, float par1, float par2,
         int y = round(round((halfLength - cos(radians(par1)) * halfLength) * 10)/10) + deltaHeight;
         return strip.XY(x,y);
       }
-
+      case F_drawLine:
+        strip.drawLine(par1, par2, par3, par4, par5);
+        return floatNull;
+      case F_drawArc:
+        if (par5 == floatNull)
+          strip.drawArc(par1, par2, par3, par4);
+        else
+          strip.drawArc(par1, par2, par3, par4, par5); //fillColor
+        return floatNull;
       case F_constrain:
         return constrain(par1, par2, par3);
       case F_map:
@@ -227,9 +208,6 @@ float WS2812FX::arti_external_function(uint8_t function, float par1, float par2,
     {
       case F_setPixelColor:
         PRINT_ARTI("%s(%f, %f, %f)\n", "setPixelColor", par1, par2, par3);
-        return floatNull;
-      case F_setPixels:
-        PRINT_ARTI("%s\n", "setPixels(leds)");
         return floatNull;
       case F_hsv:
         PRINT_ARTI("%s(%f, %f, %f)\n", "hsv", par1, par2, par3);
@@ -261,12 +239,19 @@ float WS2812FX::arti_external_function(uint8_t function, float par1, float par2,
       case F_segcolor:
         return par1;
 
+      case F_fftResult:
+        return par1;
+
       case F_shift:
         PRINT_ARTI("%s(%f)\n", "shift", par1);
         return floatNull;
       case F_circle2D:
         PRINT_ARTI("%s(%f)\n", "circle2D", par1);
         return par1 / 2;
+      case F_drawLine:
+        return par1 + par2 + par3 + par4 + par5;
+      case F_drawArc:
+        return par1 + par2 + par3 + par4 + par5;
 
       case F_constrain:
         return par1 + par2 + par3;
@@ -341,17 +326,18 @@ float WS2812FX::arti_external_function(uint8_t function, float par1, float par2,
   return function;
 }
 
-float WS2812FX::arti_get_external_variable(uint8_t variable, float par1, float par2, float par3) {
+float ARTI::arti_get_external_variable(uint8_t variable, float par1, float par2, float par3)
+{
   // MEMORY_ARTI("get %d(%f, %f, %f)\n", variable, par1, par2, par3);
   #if ARTI_PLATFORM == ARTI_ARDUINO
     switch (variable)
     {
       case F_ledCount:
         return SEGLEN;
-      case F_matrixWidth:
-        return strip.matrixWidth;
-      case F_matrixHeight:
-        return strip.matrixHeight;
+      case F_width:
+        return SEGMENT.width;
+      case F_height:
+        return SEGMENT.height;
       case F_leds:
         if (par1 == floatNull) {
           ERROR_ARTI("arti_get_external_variable leds without indices not supported yet (get leds)\n");
@@ -359,9 +345,9 @@ float WS2812FX::arti_get_external_variable(uint8_t variable, float par1, float p
           return floatNull;
         }
         else if (par2 == floatNull)
-          return leds[(uint16_t)par1];
+          return strip.getPixelColor((uint16_t)par1);
         else
-          return leds[XY((uint16_t)par1, (uint16_t)par2)]; //2D value!!
+          return strip.getPixelColor(strip.XY((uint16_t)par1, (uint16_t)par2)); //2D value!!
 
       case F_counter:
         return SEGENV.call;
@@ -375,9 +361,8 @@ float WS2812FX::arti_get_external_variable(uint8_t variable, float par1, float p
         return SEGMENT.custom2;
       case F_custom3Slider:
         return SEGMENT.custom3;
-      case F_sampleAvg:
+      case F_volume:
         return((soundAgc) ? sampleAgc : sampleAvg);
-
       case F_hour:
         return ((float)hour(localTime));
       case F_minute:
@@ -390,9 +375,9 @@ float WS2812FX::arti_get_external_variable(uint8_t variable, float par1, float p
     {
       case F_ledCount:
         return 3; // used in testing e.g. for i = 1 to ledCount
-      case F_matrixWidth:
+      case F_width:
         return 2;
-      case F_matrixHeight:
+      case F_height:
         return 4;
       case F_leds:
         if (par1 == floatNull) {
@@ -417,8 +402,8 @@ float WS2812FX::arti_get_external_variable(uint8_t variable, float par1, float p
         return F_custom2Slider;
       case F_custom3Slider:
         return F_custom3Slider;
-      case F_sampleAvg:
-        return F_sampleAvg;
+      case F_volume:
+        return F_volume;
 
       case F_hour:
         return F_hour;
@@ -434,9 +419,8 @@ float WS2812FX::arti_get_external_variable(uint8_t variable, float par1, float p
   return variable;
 }
 
-bool ledsSet; //check if leds is set 
-
-void WS2812FX::arti_set_external_variable(float value, uint8_t variable, float par1, float par2, float par3) {
+void ARTI::arti_set_external_variable(float value, uint8_t variable, float par1, float par2, float par3)
+{
   #if ARTI_PLATFORM == ARTI_ARDUINO
     // MEMORY_ARTI("%s %s %u %u (%u)\n", spaces+50-depth, variable_name, par1, par2, esp_get_free_heap_size());
     switch (variable)
@@ -448,11 +432,10 @@ void WS2812FX::arti_set_external_variable(float value, uint8_t variable, float p
           errorOccurred = true;
         }
         else if (par2 == floatNull)
-          leds[segmentToLogical((uint16_t)par1%SEGLEN)] = value;
+          strip.setPixelColor((uint16_t)par1%SEGLEN, value);
         else
-          leds[XY((uint16_t)par1%SEGMENT.width, (uint16_t)par2%SEGMENT.height)] = value; //2D value!!
+          strip.setPixelColor(strip.XY((uint16_t)par1%SEGMENT.width, (uint16_t)par2%SEGMENT.height), value); //2D value!!
 
-        ledsSet = true;
         return;
     }
   #else
@@ -469,14 +452,13 @@ void WS2812FX::arti_set_external_variable(float value, uint8_t variable, float p
         else
           RUNLOG_ARTI("arti_set_external_variable: leds(%f, %f) := %f\n", par1, par2, value);
 
-        ledsSet = true;
         return;
     }
   #endif
 
   ERROR_ARTI("Error: arti_set_external_variable: %u not implemented\n", variable);
   errorOccurred = true;
-} //arti_set_external_variable
+}
 
 bool ARTI::loop() 
 {
@@ -496,8 +478,6 @@ bool ARTI::loop()
     
     const char * function_name = "renderFrame";
     Symbol* function_symbol = global_scope->lookup(function_name);
-
-    ledsSet = false;
 
     if (function_symbol != nullptr) { //calling undefined function: pre-defined functions e.g. print
 
@@ -529,9 +509,12 @@ bool ARTI::loop()
 
       for (int i = 0; i< arti_get_external_variable(F_ledCount); i++)
       {
-        ar->set(function_symbol->function_scope->symbols[0]->scope_index, i%strip.matrixWidth); // set x
-        if (function_symbol->function_scope->nrOfFormals == 2) // 2D
+        if (function_symbol->function_scope->nrOfFormals == 2) {// 2D
+          ar->set(function_symbol->function_scope->symbols[0]->scope_index, i%strip.matrixWidth); // set x
           ar->set(function_symbol->function_scope->symbols[1]->scope_index, i/strip.matrixWidth); // set y
+        }
+        else
+          ar->set(function_symbol->function_scope->symbols[0]->scope_index, i); // set x
 
         this->callStack->push(ar);
 
@@ -544,14 +527,6 @@ bool ARTI::loop()
       delete ar; ar = nullptr;
 
     }
-
-    // if leds has been set during interpret(renderLed)
-    if (ledsSet) {
-      // Serial.println("ledsSet");
-      arti_external_function(F_setPixels);
-    }
-    // else
-    //   Serial.println("not ledsSet");
 
     if (!foundRenderFunction) 
     {
@@ -575,82 +550,20 @@ bool ARTI::loop()
   return true;
 } // loop
 
-#if ARTI_PLATFORM == ARTI_ARDUINO
-
+//declare global variables
 ARTI * arti;
 
-//Adding ARTI to this structure seems to be needed to make the pointers used in ARTI survive in subsequent calls of mode_customEffect
-//  otherwise: Interpret renderFrame: No parsetree created
-//  initially added parseTreeJsonDoc in this struct to save it explicitly but that was not needed
-// maybe because this struct is not deleted
-// typedef struct ArtiWrapper {
-//   ARTI * arti;
-// } artiWrapper;
-
-uint16_t WS2812FX::mode_customEffect(void) 
-{
-  // //brightpulse
-  // uint8_t lum = constrain(sampleAvg * 256.0 / (256.0 - SEGMENT.speed), 0, 255);
-  // fill(color_blend(SEGCOLOR(1), SEGCOLOR(0), lum));
-
-  // return FRAMETIME;
-
-  // float t = (sin((float)millis() / 1000.) + 1.0) / 2.;            // Make a slow sine wave and convert output range from -1.0 and 1.0 to between 0 and 1.0.
-  // t = t * (float)SEGLEN;                                        // Now map to the length of the strand.
- 
-  // for (int i = 0; i < SEGLEN; i++)
-  // {
-  //   float diff = abs(t - (float)i);                               // Get difference between t and current location. Greater distance = lower brightness.
-  //   if (diff > 2.0) diff = 2.0;                                   // Let's not overflow.
-  //   float bri = 256 - diff * 128;                                 // Scale the brightness to up to 255. Closer = brighter.
-  //   leds[i] = CHSV(0, 255, (uint8_t)bri);
-  // }
- 
-  // setPixels(leds);
-
-  // return FRAMETIME;
-
-  
-  // //Random
-  // for (int i = 0; i < ledCount; i = i + 1) {
-  //   uint16_t color = random16();
-  //   setPixelColor(i%ledCount, color_wheel(color%256));
-  // }
-
-  // return 0;
-
-  // //Kitt
-
-  // static int pixelCounter;
-  // static int goingUp;
-
-  // if (pixelCounter > (ledCount-5)) {
-  //   goingUp = 0;
-  // }
-  // if (pixelCounter == 0) {
-  //   goingUp = 1;
-  // }
-  // setPixelColor(pixelCounter%ledCount, color_wheel(pixelCounter%256));
-  // if (goingUp) {
-  //   setPixelColor((pixelCounter-5)%ledCount, CRGB::Black);
-  //   pixelCounter = pixelCounter + 1;
-  // }
-  // else {
-  //   setPixelColor((pixelCounter+5)%ledCount, CRGB::Black);
-  //   pixelCounter = pixelCounter - 1;
-  // }
-
-  // return 0;
-
-  // ArtiWrapper* artiWrapper = reinterpret_cast<ArtiWrapper*>(SEGENV.data);
-  
+//effect function
+uint16_t WS2812FX::mode_ARTIFX(void) { 
   //tbd: move statics to SEGMENT.data
   static bool succesful;
   static bool notEnoughHeap;
 
   static char previousEffect[charLength];
-  if (SEGENV.call == 0)
+  if (SEGENV.call == 0) {
     strcpy(previousEffect, ""); //force init
+    fill(BLACK); //in case not all leds used e.g. when using expand 1d Circles. Tbd: fill black should never be used to allow for blends/transitions
+  }
 
   char currentEffect[charLength];
   strcpy(currentEffect, (SEGMENT.name != nullptr)?SEGMENT.name:"default"); //note: switching preset with segment name to preset without does not clear the SEGMENT.name variable, but not gonna solve here ;-)
@@ -675,7 +588,7 @@ uint16_t WS2812FX::mode_customEffect(void)
     strcat(programFileName, currentEffect);
     strcat(programFileName, ".wled");
 
-    succesful = arti->setup("/wled.json", programFileName);
+    succesful = arti->setup("/wledv033.json", programFileName);
 
     if (!succesful)
       ERROR_ARTI("Setup not succesful\n");
@@ -712,12 +625,13 @@ uint16_t WS2812FX::mode_customEffect(void)
         notEnoughHeap = false;
         strcpy(previousEffect, ""); // force new create
       }
-      else
-        return mode_blink();
+      else {
+        //mode_static
+        strip.fill(SEGCOLOR(0));
+        return 350;
+      }
     }
   }
 
   return FRAMETIME;
 }
-
-#endif

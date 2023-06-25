@@ -1,7 +1,6 @@
 /*
    @title   Arduino Real Time Interpreter (ARTI)
    @file    arti.h
-   @version 0.3.1
    @date    20220818
    @author  Ewoud Wijma
    @repo    https://github.com/ewoudwijma/ARTI
@@ -42,8 +41,8 @@
 #define ARTI_FILE 2
 
 #if ARTI_PLATFORM == ARTI_ARDUINO //defined in arti_definition.h e.g. arti_wled.h!
-  #include "../../../wled.h"  
-  #include "../json/ArduinoJson-v6.h"
+  #include "../../wled00/wled.h"  
+  #include "../../wled00/src/dependencies/json/ArduinoJson-v6.h"
 
   File logFile;
 
@@ -1041,8 +1040,8 @@ class ARTI {
 private:
   Lexer *lexer = nullptr;
 
-  DynamicJsonDocument *definitionJsonDoc = nullptr;
-  DynamicJsonDocument *parseTreeJsonDoc = nullptr;
+  PSRAMDynamicJsonDocument *definitionJsonDoc = nullptr;
+  PSRAMDynamicJsonDocument *parseTreeJsonDoc = nullptr;
   JsonObject definitionJson;
   JsonVariant parseTreeJson;
 
@@ -1497,11 +1496,12 @@ public:
                   Symbol* var_symbol = current_scope->lookup(variable_name); //lookup here and parent scopes
                   if (node == F_VarRef) 
                   {
-                    if (var_symbol == nullptr) 
+                    if (var_symbol == nullptr) {
                       WARNING_ARTI("%s VarRef %s ID not found in scope of %s\n", spaces+50-depth, variable_name, current_scope->scope_name); 
                       //only warning: value 0 in interpreter (div 0 is captured)
-                    else 
+                    } else { 
                       ANDBG_ARTI("%s VarRef found %s.%s (%u)\n", spaces+50-depth, var_symbol->scope->scope_name, variable_name, depth);
+                    }
                   }
                   else //assign and var/formal
                   {
@@ -2008,8 +2008,9 @@ public:
                     // valueStack->push(callResult);
 
                   } //function_symbol != nullptr
-                  else
+                  else {
                     RUNLOG_ARTI("%s %s not found %s\n", spaces+50-depth, key, function_name);
+                  }
                 } //external functions
 
                 visitedAlready = true;
@@ -2277,8 +2278,9 @@ public:
                     valueStack->push(-valueStack->floatStack[oldIndex + 1]);
                     RUNLOG_ARTI("%s unary - %f (push %u)\n", spaces+50-depth, valueStack->floatStack[oldIndex + 1], valueStack->stack_index );
                   }
-                  else
+                  else {
                     RUNLOG_ARTI("%s unary operator not supported %u %s\n", spaces+50-depth, operatorx, tokenToString(operatorx));
+                  }
                 }
 
                 visitedAlready = true;
@@ -2474,15 +2476,15 @@ public:
 
     if (!definitionFile) 
     {
-      ERROR_ARTI("Definition file %s not found. Press Download wled.json\n", definitionName);
+      ERROR_ARTI("Definition file %s not found. Press Download wled json\n", definitionName);
       return false;
     }
     
     //open definitionFile
     #if ARTI_PLATFORM == ARTI_ARDUINO
-      definitionJsonDoc = new DynamicJsonDocument(8192); //currently 5335
+      definitionJsonDoc = new PSRAMDynamicJsonDocument(8192); //currently 5335
     #else
-      definitionJsonDoc = new DynamicJsonDocument(16384); //currently 9521
+      definitionJsonDoc = new PSRAMDynamicJsonDocument(16384); //currently 9521
     #endif
 
     // mandatory tokens:
@@ -2504,9 +2506,9 @@ public:
     JsonObject::iterator objectIterator = definitionJson.begin();
     JsonObject metaData = objectIterator->value();
     const char * version = metaData["version"];
-    if (strcmp(version, "0.3.1") != 0) 
+    if (strcmp(version, "v033") != 0) 
     {
-      ERROR_ARTI("Version of definition.json file (%s) should be 0.3.1.\nPress Download wled.json\n", version);
+      ERROR_ARTI("Version of definition.json file (%s) should be v033.\nPress Download wled json\n", version);
       return false;
     }
     const char * startNode = metaData["start"];
@@ -2553,9 +2555,9 @@ public:
     //   strcpy(parseTreeName, "Gen");
     strcat(parseTreeName, ".json");
     #if ARTI_PLATFORM == ARTI_ARDUINO
-      parseTreeJsonDoc = new DynamicJsonDocument(32768); //less memory on arduino: 32 vs 64 bit?
+      parseTreeJsonDoc = new PSRAMDynamicJsonDocument(32768); //less memory on arduino: 32 vs 64 bit?
     #else
-      parseTreeJsonDoc = new DynamicJsonDocument(65536);
+      parseTreeJsonDoc = new PSRAMDynamicJsonDocument(65536);
     #endif
 
     MEMORY_ARTI("parseTree %u => %u ✓\n", (unsigned int)parseTreeJsonDoc->capacity(), FREE_SIZE);

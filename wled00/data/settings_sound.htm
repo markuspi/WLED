@@ -8,7 +8,7 @@
     var d=document;
 		function H()
 		{
-			window.open("https://github.com/atuline/WLED/wiki/Squelch-and-Gain");
+			window.open("https://github.com/atuline/WLED/wiki/Sound-Settings");
 		}
 		function B()
 		{
@@ -19,6 +19,12 @@
 		{
 			var en = parseInt(d.getElementById('dme').value);
 			d.getElementById('dm').style.display = (en >= 1) ? 'inline':'none';
+			d.getElementById('dm_mclk').style.display = ((en == 2) || (en == 4)) ? 'inline':'none';
+			d.getElementById('dm_sck').style.display = ((en != 5) && (en >= 1)) ? 'inline':'none';
+			d.getElementById('dm_pdmdat').style.display = (en == 5) ? 'inline':'none';
+			d.getElementById('dm_pdmclk').style.display = (en == 5) ? 'inline':'none';
+			d.getElementById('dm_xdat').style.display = ((en != 5) && (en >= 1)) ? 'inline':'none';
+			d.getElementById('dm_xws').style.display = ((en != 5) && (en >= 1)) ? 'inline':'none';
 			d.getElementById('am').style.display = (en == 0) ? 'inline':'none';
 		}
     function GetV()
@@ -37,9 +43,10 @@
 		<h2>Sound Input Settings</h2>
 		<p>
 		Squelch: <input name="SQ" type="number" min="0" max="255" required><br>
-		Gain: <input name="GN" type="number" min="0" max="255" required><br>
-		<i>Gain=40 means an amplification of 1; 1 is about 1/12, 255 is about 6.5</i><br>
-		<i>To tune, set input level slider to middle/128, start with Squelch=5..10 and Gain=40 and modify according to your setup</i><br>
+		Gain: <input name="GN" type="number" min="0" max="255" required></p><p  class="tiny">
+		<a href="https://github.com/atuline/WLED/wiki/Sound-Settings#how-to" target="_blank">How to tune Squelch and Gain</a><br>
+		<i>Gain=40 means an amplification of 1; 1 is about 1/12, 255 is about 6.5</i>. 
+		<i>To tune, set input level slider to middle/128, start with Squelch=5..10 and Gain=40 and modify according to your setup.</i><br>
 		</p>
 		<p>Automatic Gain Control (AGC): 
 	    <select name="AGC">
@@ -48,7 +55,8 @@
 			<option value="2">Vivid</option>
 			<option value="3">Lazy</option>
 		</select><br>
-		<i>If AGC is enabled, the input slider (🎚) will automatically be adjusted</i></p>
+		<div class="tiny">
+		<i>If AGC is enabled, the input slider (🎚) will automatically be adjusted</i></div></p>
 		<h2>Sound Input Pin Manager</h2>
 		Microphone type: <select id="dme" name="DMM" onchange="enDM()" >
 			<option value="0" selected>Generic Analog</option>
@@ -59,14 +67,27 @@
 			<option value="5">Generic I2S PDM</option>
 		  </select><br>
 		  <div id="dm">
-			I2S SD pin: <input type="number" min="-1" max="40" name="DI"><br>
-			I2S WS pin: <input type="number" min="-1" max="40" name="LR"><br>
-			I2S SCK pin: <input type="number" min="-1" max="40" name="CK"><br>
+			I2S SD pin: <input type="number" min="-1" max="40" name="DI"> &nbsp; 
+						<span id="dm_xdat" class="tiny">SD / DATA / DOUT</span><span id="dm_pdmdat" class="tiny">DATA</span><br>
+			I2S WS pin: <input type="number" min="-1" max="40" name="LR"> &nbsp; 
+						<span id="dm_xws" class="tiny">WS / CLK / LRCK &nbsp;</span><span id="dm_pdmclk" class="tiny">CLK &nbsp;</span><br> 
+		    <div id="dm_sck">
+			I2S SCK pin: <input type="number" min="-1" max="40" name="CK"> &nbsp; 
+						<span class="tiny">SCK / BCLK &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><br>
+			</div>
+		    <div id="dm_mclk">
+			I2S MCLK pin: <input type="number" min="-1" max="3" name="MCLK"> &nbsp; 
+						<span class="tiny">MCK / MCLK &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><br>
+		    </div>
 		  </div>
-		  <i>Changing the microphone type or pins requires a hard reset/power cycle</i><br>
+		  <i class="tiny">Changing the microphone type or pins requires a hard reset/power cycle</i><br>
 		<div id="am">
 			Analog Input pin: <input type="number" min="-1" max="40" name="SI"><br>
 		</div>
+		<p>
+		<a href="https://github.com/atuline/WLED/wiki/Digital-Microphone-Hookup" target="_blank">about I2S Digital Input</a> &nbsp; 
+		<a href="https://github.com/atuline/WLED/wiki/Analog-Audio-Input-Options" target="_blank">about Analog Input</a><br>
+		</p>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
 </body>

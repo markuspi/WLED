@@ -168,14 +168,14 @@ void WS2812FX::service() {
           _colors_t[c] = gamma32(_colors_t[c]);
         }
         handle_palette();
-        //WLEDSR: swap width and height if rotated
+        //WLEDSR: swap width and height if rotated  // softhack first check for stop >= start, to avoid underflow
         if (IS_ROTATED2D && stripOrMatrixPanel == 1) {//matrix
-          SEGMENT.height = SEGMENT.stopX - SEGMENT.startX + 1;
-          SEGMENT.width = SEGMENT.stopY - SEGMENT.startY + 1;
+          SEGMENT.height = (SEGMENT.stopX >= SEGMENT.startX) ? (SEGMENT.stopX - SEGMENT.startX + 1) : 0;
+          SEGMENT.width  = (SEGMENT.stopY >= SEGMENT.startY) ? (SEGMENT.stopY - SEGMENT.startY + 1) : 0;
         }
         else {
-          SEGMENT.width = SEGMENT.stopX - SEGMENT.startX + 1;
-          SEGMENT.height = SEGMENT.stopY - SEGMENT.startY + 1;
+          SEGMENT.width  = (SEGMENT.stopX >= SEGMENT.startX) ? (SEGMENT.stopX - SEGMENT.startX + 1) : 0;
+          SEGMENT.height = (SEGMENT.stopY >= SEGMENT.startY) ? (SEGMENT.stopY - SEGMENT.startY + 1) : 0;
         }
         if (_mode[SEGMENT.mode] != nullptr)
           delay = (this->*_mode[SEGMENT.mode])(); //effect function
@@ -290,21 +290,23 @@ void IRAM_ATTR WS2812FX::setPixelColor(int i, byte r, byte g, byte b, byte w)
     i += _segments[segIdx].start;
 
     /* Set all the pixels in the group */
-    for (uint16_t j = 0; j < SEGMENT.grouping; j++) {
-      uint16_t indexSet = logicalIndex + (IS_REVERSE ? -j : j);
+    for (uint_fast16_t j = 0; j < SEGMENT.grouping; j++) {
+      int indexSet = logicalIndex + (IS_REVERSE ? -j : j);
       if (indexSet >= SEGMENT.start && indexSet < SEGMENT.stop) {
         if (IS_MIRROR) { // set the corresponding mirrored pixel
-          uint16_t indexMir = SEGMENT.stop - indexSet + SEGMENT.start - 1;
+          int indexMir = SEGMENT.stop - indexSet + SEGMENT.start - 1;
           /* offset/phase */
           indexMir += SEGMENT.offset;
           if (indexMir >= SEGMENT.stop) indexMir -= len;
+          if (indexMir < SEGMENT.start) indexMir += len; // softhack007: wrap around on both sides
 
           if (indexMir >= _segments[segIdx].stop) indexMir -= len;
           if (indexMir < customMappingSize) indexMir = customMappingTable[indexMir];
-          busses.setPixelColor(logicalToPhysical(indexSet), col);
+          //busses.setPixelColor(logicalToPhysical(indexSet), col); // softhack007: wrong pixel position, and not needed here
           busses.setPixelColor(logicalToPhysical(indexMir), col); // ewowi20210624: logicalToPhysical: Maps logical led index to physical led index.
         }
         indexSet += _segments[segIdx].offset; // offset/phase
+        if ((SEGMENT.stop > 0) && (indexSet >= SEGMENT.stop)) indexSet -= len;     // softhack007: wrap around when offset != 0  (stop == 0 means "segment invalid")
 
         if (indexSet < customMappingSize) indexSet = customMappingTable[indexSet]; // This line is also on L292
         busses.setPixelColor(logicalToPhysical(indexSet), col);
@@ -443,8 +445,9 @@ uint8_t WS2812FX::getTargetFps() {
 }
 
 void WS2812FX::setTargetFps(uint8_t fps) {
-	if (fps > 0 && fps <= 120) _targetFps = fps;
+	if (fps > 0 && fps <= 250) _targetFps = fps; // WLEDSR accept up to 250 fps target
 	_frametime = 1000 / _targetFps;
+  if (_frametime < 2) _frametime = 2; // WLEDSR 
 }
 
 // Fixes private class variable compiler error. Unsure if this is the correct way of fixing the root problem. -THATDONFC
@@ -463,6 +466,15 @@ void WS2812FX::setMode(uint8_t segid, uint8_t m) {
   if (segid >= MAX_NUM_SEGMENTS) return;
 
   if (m >= MODE_COUNT) m = MODE_COUNT - 1;
+
+  // WLEDSR: check that mode is valid
+  char lineBuffer[12] = { '\0' };
+  extractModeName(m, JSON_mode_names, lineBuffer, 11);
+  if(strncmp_P("Reserved", lineBuffer, 8) == 0) {
+      DEBUG_PRINTF("setMode: invalid mode %d\n", m);
+      m = FX_MODE_RANDOM_COLOR;
+  }
+  // WLEDSR end
 
   if (_segments[segid].mode != m)
   {
@@ -1051,7 +1063,7 @@ uint32_t IRAM_ATTR WS2812FX::color_blend(uint32_t color1, uint32_t color2, uint1
  * Fills segment with color
  */
 void WS2812FX::fill(uint32_t c) {
-  for(uint16_t i = 0; i < SEGLEN; i++) {
+  for(uint_fast16_t i = 0; i < SEGLEN; i++) {
     setPixelColor(i, c);
   }
 }
@@ -1075,7 +1087,7 @@ void WS2812FX::fade2black(uint8_t rate) {
 
   mappedRate = mappedRate / 100;
 
-  for(uint16_t i = 0; i < SEGLEN; i++) {
+  for(uint_fast16_t i = 0; i < SEGLEN; i++) {
     color = getPixelColor(i);
     int w1 = W(color);
     int r1 = R(color);
@@ -1104,7 +1116,7 @@ void WS2812FX::fade_out(uint8_t rate) {
   int g2 = G(color);
   int b2 = B(color);
 
-  for(uint16_t i = 0; i < SEGLEN; i++) {
+  for(uint_fast16_t i = 0; i < SEGLEN; i++) {
     color = getPixelColor(i);
     int w1 = W(color);
     int r1 = R(color);
@@ -1134,7 +1146,7 @@ void WS2812FX::blur(uint8_t blur_amount)
   uint8_t keep = 255 - blur_amount;
   uint8_t seep = blur_amount >> 1;
   CRGB carryover = CRGB::Black;
-  for(uint16_t i = 0; i < SEGLEN; i++)
+  for(uint_fast16_t i = 0; i < SEGLEN; i++)
   {
     CRGB cur = col_to_crgb(getPixelColor(i));
     CRGB part = cur;
@@ -1239,7 +1251,7 @@ CRGB IRAM_ATTR WS2812FX::col_to_crgb(uint32_t color)
 void WS2812FX::load_gradient_palette(uint8_t index)
 {
   byte i = constrain(index, 0, GRADIENT_PALETTE_COUNT -1);
-  byte tcp[72]; //support gradient palettes with up to 18 entries
+  byte tcp[76] = {255}; //support gradient palettes with up to 18 entries  // WLEDSR with safety margin
   memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i])), 72);
   targetPalette.loadDynamicGradientPalette(tcp);
 }
@@ -1326,6 +1338,10 @@ void WS2812FX::handle_palette(void)
       targetPalette = RainbowColors_p; break;
     case 12: //Rainbow stripe colors
       targetPalette = RainbowStripeColors_p; break;
+    case 71: //WLEDMM netmindz ar palette +1
+    case 72: //WLEDMM netmindz ar palette +1
+      targetPalette = getAudioPalette(paletteIndex);
+      break; 
     default: //progmem palettes
       load_gradient_palette(paletteIndex -13);
   }
@@ -1338,6 +1354,41 @@ void WS2812FX::handle_palette(void)
     currentPalette = targetPalette;
   }
 }
+
+// WLEDMM netmindz ar palette
+CRGBPalette16 WS2812FX::getAudioPalette(int pal) {
+  // https://forum.makerforums.info/t/hi-is-it-possible-to-define-a-gradient-palette-at-runtime-the-define-gradient-palette-uses-the/63339
+
+  uint8_t xyz[16];  // Needs to be 4 times however many colors are being used.
+                    // 3 colors = 12, 4 colors = 16, etc.
+
+  xyz[0] = 0;  // anchor of first color - must be zero
+  xyz[1] = 0;
+  xyz[2] = 0;
+  xyz[3] = 0;
+
+  CRGB rgb = getCRGBForBand(1, pal);
+  
+  xyz[4] = 1;  // anchor of first color
+  xyz[5] = rgb.r;
+  xyz[6] = rgb.g;
+  xyz[7] = rgb.b;
+
+  rgb = getCRGBForBand(128, pal);
+  xyz[8] = 128;
+  xyz[9] = rgb.r;
+  xyz[10] = rgb.g;
+  xyz[11] = rgb.b;
+  
+  rgb = getCRGBForBand(255, pal);
+  xyz[12] = 255;  // anchor of last color - must be 255
+  xyz[13] = rgb.r;
+  xyz[14] = rgb.g;
+  xyz[15] = rgb.b;
+
+  return CRGBPalette16(xyz);
+}
+
 
 
 /*
@@ -1418,6 +1469,7 @@ void WS2812FX::deserializeMap(uint8_t n) {
   releaseJSONBufferLock();
 }
 
+#if !defined(WLED_USE_CIE_BRIGHTNESS_TABLE)
 //gamma 2.8 lookup table used for color correction
 byte gammaT[] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -1436,6 +1488,31 @@ byte gammaT[] = {
   144,146,148,150,152,154,156,158,160,162,164,167,169,171,173,175,
   177,180,182,184,186,189,191,193,196,198,200,203,205,208,210,213,
   215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255 };
+#else
+// experimental
+// CIE 1931 lookup table (8bit->8bit) that was proposed during discussion of issue #2767
+// https://github.com/Aircoookie/WLED/issues/2767#issuecomment-1310961308
+// unfortunately NepixelsBu has its own internal table, that kills low brightness values similar to the original WLED table.
+//   see https://github.com/Makuna/NeoPixelBus/blob/master/src/internal/NeoGamma.h
+static const byte gammaT[256] = {
+  0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 
+  2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4,
+  4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 
+  7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 10, 10, 10, 10, 11, 
+  11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 15, 15, 15, 16, 16, 17, 
+  17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 
+  25, 25, 26, 27, 27, 28, 28, 29, 30, 30, 31, 31, 32, 33, 33, 34, 
+  35, 35, 36, 37, 38, 38, 39, 40, 41, 41, 42, 43, 44, 44, 45, 46, 
+  47, 48, 49, 50, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 
+  62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 74, 75, 76, 77, 78, 
+  79, 81, 82, 83, 84, 85, 87, 88, 89, 91, 92, 93, 94, 96, 97, 99, 
+  100, 101, 103, 104, 106, 107, 109, 110, 111, 113, 115, 116, 118, 119, 121, 
+  122, 124, 126, 127, 129, 130, 132, 134, 135, 137, 139, 141, 142, 144, 146, 
+  148, 150, 151, 153, 155, 157, 159, 161, 163, 165, 167, 169, 170, 172, 174, 
+  177, 179, 181, 183, 185, 187, 189, 191, 193, 195, 198, 200, 202, 204, 207, 
+  209, 211, 213, 216, 218, 220, 223, 225, 227, 230, 232, 235, 237, 240, 242, 
+  245, 247, 250, 252, 255 };
+#endif
 
 uint8_t WS2812FX::gamma8_cal(uint8_t b, float gamma) {
   return (int)(pow((float)b / 255.0, gamma) * 255 + 0.5);
@@ -1443,9 +1520,11 @@ uint8_t WS2812FX::gamma8_cal(uint8_t b, float gamma) {
 
 void WS2812FX::calcGammaTable(float gamma)
 {
+#if !defined(WLED_USE_CIE_BRIGHTNESS_TABLE)
   for (uint16_t i = 0; i < 256; i++) {
     gammaT[i] = gamma8_cal(i, gamma);
   }
+#endif
 }
 
 uint8_t WS2812FX::gamma8(uint8_t b)

@@ -1,4 +1,8 @@
 #include "wled.h"
+
+static bool serialTxAvaileable = true;   // false means we cannot use Serial.print, as serialTX pin is in use for other purposes (like LEDs)
+constexpr uint8_t hardwareTX = 1;        // just a constant to improve code readability
+
 #include "audio_reactive.h"
 /*
  * This v1 usermod file allows you to add own functionality to WLED more easily
@@ -10,7 +14,7 @@
  */
 
 /*
- * Functions and variable delarations moved to audio_reactive.h
+ * Functions and variable declarations moved to audio_reactive.h
  * Not 100% sure this was done right. There is probably a better way to handle this...
  */
 
@@ -19,40 +23,65 @@ static unsigned long last_UDPTime = 0;    // time of last valid UDP sound sync d
 static float maxSample5sec = 0.0f;        // max sample (after AGC) in last 5 seconds 
 static unsigned long sampleMaxTimer = 0;  // last time maxSample5sec was reset
 static int receivedFormat = 0;            // last received UDP sound sync format - 0=none, 1=v1 (0.13.x), 2=v2 (0.14.x)
-#define CYCLE_SAMPLEMAX 2500              // time window for merasuring
+#define CYCLE_SAMPLEMAX 2500              // time window for measuring
 
 // This gets called once at boot. Do all initialization that doesn't depend on network here
 void userSetup() {
   disableSoundProcessing = true; // just to be safe
   // Reset I2S peripheral for good measure
   i2s_driver_uninstall(I2S_NUM_0);
+  delay(100); // Give this peripheral time to disable to avoid an indeterminate state.
   periph_module_reset(PERIPH_I2S0_MODULE);
 
   delay(100);         // Give that poor microphone some time to setup.
+
+  // check if Serial can be used for printing messages
+  if  (pinManager.isPinAllocated(hardwareTX)) serialTxAvaileable = false; 
+  if ((pinManager.isPinAllocated(hardwareTX)) && (pinManager.getPinOwner(hardwareTX) == PinOwner::DebugOut)) serialTxAvaileable = true;  // TX available for debug
+  if ((dmType > 0) && ((i2ssdPin == hardwareTX) || (i2swsPin == hardwareTX) || (i2sckPin == hardwareTX))) serialTxAvaileable = false;    // i2S pin == TX (stupid but possible ...)
+
+  useInputFilter = 0;
+  // initialize I2S input
   switch (dmType) {
     case 1:
-      Serial.print("AS: Generic I2S Microphone - "); Serial.println(I2S_MIC_CHANNEL_TEXT);
+      useInputFilter = 3; // apply 60Hz Low-Cut filter
+      if (serialTxAvaileable) {
+        Serial.print("AS: Generic I2S Microphone - "); Serial.println(I2S_MIC_CHANNEL_TEXT);
+      }
       audioSource = new I2SSource(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF);
       break;
     case 2:
-      Serial.println("AS: ES7243 Microphone (right channel only).");
-      audioSource = new ES7243(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF);
+      useInputFilter = 3; // apply 60Hz Low-Cut filter
+      if (serialTxAvaileable) Serial.println("AS: ES7243 Microphone (right channel only).");
+      // audioSource = new ES7243(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF, 1.0f/16.0f);  // for Line Level
+      audioSource = new ES7243(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF);              // for Microphone Level
       break;
     case 3:
-      Serial.print("AS: SPH0645 Microphone - "); Serial.println(I2S_MIC_CHANNEL_TEXT);
+      useInputFilter = 3; // apply 60Hz Low-Cut filter
+      if (serialTxAvaileable) {
+        Serial.print("AS: SPH0645 Microphone - "); Serial.println(I2S_MIC_CHANNEL_TEXT);
+      }
       audioSource = new SPH0654(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF);
       break;
     case 4:
-      Serial.print("AS: Generic I2S Microphone with Master Clock - "); Serial.println(I2S_MIC_CHANNEL_TEXT);
-      audioSource = new I2SSourceWithMasterClock(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF);
+      useInputFilter = 3; // apply 60hz low-cut filter against ground loop noise
+      if (mclkPin == hardwareTX) serialTxAvaileable = false;
+      if (serialTxAvaileable) {
+        Serial.print("AS: Generic I2S Microphone with Master Clock - "); Serial.println(I2S_MIC_CHANNEL_TEXT);
+      }
+      audioSource = new I2SSourceWithMasterClock(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF, 1.0f/24.0f);
       break;
     case 5:
-      Serial.print("AS: I2S PDM Microphone - "); Serial.println(I2S_MIC_CHANNEL_TEXT);
-      audioSource = new I2SPdmSource(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF);
+      useInputFilter = 1;  // 1 = PDM bandpass filter
+      if (serialTxAvaileable) {
+        Serial.print("AS: I2S PDM Microphone - "); Serial.println(I2S_MIC_CHANNEL_TEXT);
+      }
+      audioSource = new I2SPdmSource(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF, 1.0f/4.0f);
       break;
     case 0:
     default:
-      Serial.println("AS: Analog Microphone (left channel only).");
+      useInputFilter = 1; // useful as ADC analog is notoriously noisy. Also the filter might reduce signal artefacts from non-continuous sampling
+      if (serialTxAvaileable) Serial.println("AS: Analog Microphone (left channel only).");
       audioSource = new I2SAdcSource(SAMPLE_RATE, BLOCK_SIZE, 0, 0x0FFF);
       break;
   }
@@ -62,8 +91,10 @@ void userSetup() {
   audioSource->initialize();
   delay(250);
 
-  if(!audioSource->isInitialized())
-    Serial.println("AS: Failed to initialize sound input driver. Please check input PIN settings.");
+  if(!audioSource->isInitialized()) {
+    if (serialTxAvaileable) 
+      Serial.println("AS: Failed to initialize sound input driver. Please check input PIN settings.");
+  }
 
   sampling_period_us = round(1000000*(1.0/SAMPLE_RATE));
 
@@ -244,9 +275,15 @@ void userLoop() {
       if (udpSyncConnected) {
         //Serial.println("Checking for UDP Microphone Packet");
         int packetSize = fftUdp.parsePacket();
-        if (packetSize > 6) {  // packet is big enough to contain a t least the header
+
+        if ((packetSize < 6) || (packetSize > UDPSOUND_MAX_PACKET)) { // packet too small or too big -> discard and clean up buffers
+          fftUdp.flush();
+          packetSize = 0;
+        }
+
+        if (packetSize > 6) {  // packet is big enough to contain at least the header
           // Serial.println("Received UDP Sync Packet");
-          uint8_t fftBuff[packetSize];
+          static uint8_t fftBuff[UDPSOUND_MAX_PACKET+1];                              // softhack007: use a static buffer that can hold the biggest expected packet.
           fftUdp.read(fftBuff, packetSize);
           static audioSyncPacket receivedPacket;                                      // softhack007: added "static"
           memcpy(&receivedPacket, fftBuff, MIN(sizeof(receivedPacket), packetSize));  // don't copy more that what fits into audioSyncPacket
@@ -271,7 +308,7 @@ void userLoop() {
               sampleAvg = receivedPacket.sampleAvg;
 
               // auto-reset sample peak. Need to do it here, because getSample() is not running
-              uint16_t MinShowDelay = strip.getMinShowDelay();
+              uint16_t MinShowDelay = max((uint16_t)33, strip.getMinShowDelay());
               if (millis() - timeOfPeak > MinShowDelay) {   // Auto-reset of samplePeak after a complete frame has passed.
                 samplePeak = 0;
                 udpSamplePeak = 0;
@@ -280,9 +317,9 @@ void userLoop() {
 
               // Only change samplePeak IF it's currently false.
               // If it's true already, then the animation still needs to respond.
-              if (!samplePeak) {
+              if (samplePeak==0) {
                 samplePeak = receivedPacket.samplePeak;
-                if (samplePeak) timeOfPeak = millis();
+                if (samplePeak >0) timeOfPeak = millis();
                 udpSamplePeak = samplePeak;
                 userVar1 = samplePeak;
               }
@@ -330,7 +367,7 @@ void usermod_updateInfo(void) {
       }
     } else {                                        // error during audio source setup
       strcpy(audioStatusInfo[0], "not initialized");
-      strcpy(audioStatusInfo[1], " - check GPIO config");
+      strcpy(audioStatusInfo[1], " - check pin settings");
     }
   }
   
@@ -369,7 +406,7 @@ void usermod_updateInfo(void) {
   }
 
   bool foundPot = false;
-  if ((dmType == 0) && (audioPin > 0)) { // ADC analog input - warn if Potentimeter is configured
+  if ((dmType == 0) && (audioPin > 0)) { // ADC analog input - warn if Potentiometer is configured
     for (int b=0; b<WLED_MAX_BUTTONS; b++) {
       if ((btnPin[b] >= 0) 
           && (buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) 

@@ -26,6 +26,7 @@ private:
   bool HomeAssistantDiscovery = false;    // Publish Home Assistant Device Information
 
   // set the default pins based on the architecture, these get overridden by Usermod menu settings
+  #if !defined(HW_PIN_SDA) && !defined(HW_PIN_SCL) // WLEDSR do not overwrite global pins
   #ifdef ARDUINO_ARCH_ESP32 // ESP32 boards
     #define HW_PIN_SCL 22
     #define HW_PIN_SDA 21
@@ -33,6 +34,7 @@ private:
     #define HW_PIN_SCL 5
     #define HW_PIN_SDA 4
     //uint8_t RST_PIN = 16; // Uncoment for Heltec WiFi-Kit-8
+  #endif
   #endif
   int8_t ioPin[2] = {HW_PIN_SCL, HW_PIN_SDA};        // I2C pins: SCL, SDA...defaults to Arch hardware pins but overridden at setup()
   bool initDone = false;
@@ -181,6 +183,7 @@ public:
     PinOwner po = PinOwner::UM_BME280; // defaults to being pinowner for SCL/SDA pins
     PinManagerPinType pins[2] = { { ioPin[0], true }, { ioPin[1], true } };  // allocate pins
     if (HW_Pins_Used) po = PinOwner::HW_I2C; // allow multiple allocations of HW I2C bus pins
+    if ((pins[0].pin < 0) || (pins[1].pin < 0))  { sensorType=0; return; }  // WLEDSR
     if (!pinManager.allocateMultiplePins(pins, 2, po)) { sensorType=0; return; }
     
     Wire.begin(ioPin[1], ioPin[0]);

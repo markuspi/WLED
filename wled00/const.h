@@ -26,7 +26,7 @@
     #ifdef CONFIG_IDF_TARGET_ESP32S2
       #define WLED_MAX_BUSSES 5
     #else
-      #define WLED_MAX_BUSSES 10
+      #define WLED_MAX_BUSSES 9 // WLEDSR I2S#0 is reserved for audio (needed both for analog _and_ digital)
     #endif
   #endif
 #endif
@@ -77,6 +77,8 @@
 #define USERMOD_ID_MY9291                28     //Usermod "usermod_MY9291.h"
 #define USERMOD_ID_SI7021_MQTT_HA        29     //Usermod "usermod_si7021_mqtt_ha.h"
 #define USERMOD_ID_BME280                30     //Usermod "usermod_bme280.h
+//WLEDMM
+#define USERMOD_ID_ARTIFX                31     //Usermod "usermod_v2_artifx.h"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
@@ -308,7 +310,7 @@
 #endif
 
 #ifndef ABL_MILLIAMPS_DEFAULT
-  #define ABL_MILLIAMPS_DEFAULT 850  // auto lower brightness to stay close to milliampere limit
+  #define ABL_MILLIAMPS_DEFAULT 1500  // auto lower brightness to stay close to milliampere limit WLEDSR: 1500 minmal for 1024 leds / 2D
 #else
   #if ABL_MILLIAMPS_DEFAULT < 250  // make sure value is at least 250
    #define ABL_MILLIAMPS_DEFAULT 250
@@ -369,4 +371,59 @@
 
 #define INTERFACE_UPDATE_COOLDOWN 2000 //time in ms to wait between websockets, alexa, and MQTT updates
 
+
+// HW_PIN_SCL & HW_PIN_SDA are used for information in usermods settings page and usermods themselves
+// which GPIO pins are actually used in a hardwarea layout (controller board)
+#if defined(I2CSCLPIN) && !defined(HW_PIN_SCL)
+  #define HW_PIN_SCL I2CSCLPIN
+#endif
+#if defined(I2CSDAPIN) && !defined(HW_PIN_SDA)
+  #define HW_PIN_SDA I2CSDAPIN
+#endif
+// you cannot change HW I2C pins on 8266
+#if defined(ESP8266) && defined(HW_PIN_SCL)
+  #undef HW_PIN_SCL
+#endif
+#if defined(ESP8266) && defined(HW_PIN_SDA)
+  #undef HW_PIN_SDA
+#endif
+// defaults for 1st I2C on ESP32 (Wire global)
+#ifndef HW_PIN_SCL
+  #define HW_PIN_SCL SCL
+#endif
+#ifndef HW_PIN_SDA
+  #define HW_PIN_SDA SDA
+#endif
+
+// HW_PIN_SCLKSPI & HW_PIN_MOSISPI & HW_PIN_MISOSPI are used for information in usermods settings page and usermods themselves
+// which GPIO pins are actually used in a hardwarea layout (controller board)
+#if defined(SPISCLKPIN) && !defined(HW_PIN_CLOCKSPI)
+  #define HW_PIN_CLOCKSPI SPISCLKPIN
+#endif
+#if defined(SPIMOSIPIN) && !defined(HW_PIN_MOSISPI)
+  #define HW_PIN_MOSISPI SPIMOSIPIN
+#endif
+#if defined(SPIMISOPIN) && !defined(HW_PIN_MISOSPI)
+  #define HW_PIN_MISOSPI SPIMISOPIN
+#endif
+// you cannot change HW SPI pins on 8266
+#if defined(ESP8266) && defined(HW_PIN_CLOCKSPI)
+  #undef HW_PIN_CLOCKSPI
+#endif
+#if defined(ESP8266) && defined(HW_PIN_DATASPI)
+  #undef HW_PIN_DATASPI
+#endif
+#if defined(ESP8266) && defined(HW_PIN_MISOSPI)
+  #undef HW_PIN_MISOSPI
+#endif
+// defaults for VSPI on ESP32 (SPI global, SPI.cpp) as HSPI is used by WLED (bus_wrapper.h)
+#ifndef HW_PIN_CLOCKSPI
+  #define HW_PIN_CLOCKSPI SCK
+#endif
+#ifndef HW_PIN_DATASPI
+  #define HW_PIN_DATASPI MOSI
+#endif
+#ifndef HW_PIN_MISOSPI
+  #define HW_PIN_MISOSPI MISO
+#endif
 #endif

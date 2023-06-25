@@ -61,7 +61,7 @@ class AutoSaveUsermod : public Usermod {
     void inline saveSettings() {
       char presetNameBuffer[PRESET_NAME_BUFFER_SIZE];
       updateLocalTime();
-      sprintf_P(presetNameBuffer, 
+      snprintf_P(presetNameBuffer, PRESET_NAME_BUFFER_SIZE -1, 
         PSTR("~ %02d-%02d %02d:%02d:%02d ~"),
         month(localTime), day(localTime),
         hour(localTime), minute(localTime), second(localTime));

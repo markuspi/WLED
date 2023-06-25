@@ -77,13 +77,14 @@
 #define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / MAX_NUM_SEGMENTS)
 
 // NEED WORKAROUND TO ACCESS PRIVATE CLASS VARIABLE '_frametime'
-#define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)
+#define MIN_SHOW_DELAY   (_frametime < 16 ? (_frametime <8? (_frametime <7? (_frametime <6 ? 2 :3) :4) : 8) : 15)    // WLEDSR support higher framerates (up to 250fps)
 
 #define NUM_COLORS       3 /* number of colors per segment */
-#define SEGMENT          _segments[_segment_index]
-#define SEGCOLOR(x)      _colors_t[x]
-#define SEGENV           _segment_runtimes[_segment_index]
-#define SEGLEN           _virtualSegmentLength
+#define SEGMENT          strip._segments[strip.getCurrSegmentId()]
+#define SEGCOLOR(x)      strip._colors_t[x]
+#define SEGENV           strip._segment_runtimes[strip.getCurrSegmentId()]
+#define SEGPALETTE       strip._currentPalette
+#define SEGLEN           strip._virtualSegmentLength
 #define SEGACT           SEGMENT.stop
 #define SPEED_FORMULA_L  5U + (50U*(255U - SEGMENT.speed))/SEGLEN
 
@@ -120,7 +121,7 @@
 #define IS_REVERSE      ((SEGMENT.options & REVERSE     ) == REVERSE     )
 #define IS_SELECTED     ((SEGMENT.options & SELECTED    ) == SELECTED    )
 
-#define MODE_COUNT 190// WLEDSR: First 128 for AC (incl reserved), rest for SR
+#define MODE_COUNT 195 // WLEDSR: First 128 for AC (incl reserved), rest for SR
 
 #define FX_MODE_STATIC                   0
 #define FX_MODE_BLINK                    1
@@ -317,11 +318,17 @@
 #define FX_MODE_WAVESINS               184
 #define FX_MODE_ROCKTAVES              185
 #define FX_MODE_2DAKEMI                186
-#define FX_MODE_CUSTOMEFFECT           187 //WLEDSR Custom Effects
+#define FX_MODE_ARTIFX                 187 //WLEDSR ARTI-FX
 #define FX_MODE_3DRIPPLES              188
 #define FX_MODE_3DSphereMove        189
 
-#define floatNull -32768 //WLEDSR Custom Effects
+// Experimental Audioresponsive modes
+#define FX_MODE_POPCORN_AR             190
+#define FX_MODE_MULTI_COMET_AR         191
+#define FX_MODE_STARBURST_AR           192
+#define FX_MODE_PALETTE_AR             193
+#define FX_MODE_FIREWORKS_AR           194
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //    End of Audio Reactive fork (WLEDSR)                                                                                                //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -424,7 +431,8 @@ class WS2812FX {
       }
       inline uint16_t length()
       {
-        return (stopX - startX + 1) * (stopY - startY + 1); //WLEDSR: calculate length using SEGMENT x/y. Used by SEGLEN
+        if ((stopX < startX) || (stopY < startY)) return 0;      //WLEDSR: avoid unsigned underflow (stop = 0 is allowed)
+        else return (stopX - startX + 1) * (stopY - startY + 1); //WLEDSR: calculate length using SEGMENT x/y. Used by SEGLEN
       }
       inline uint16_t groupLength()
       {
@@ -433,7 +441,7 @@ class WS2812FX {
       uint16_t virtualLength()
       {
         uint16_t groupLen = groupLength();
-        uint16_t vLength = (length() + groupLen - 1) / groupLen;
+        uint16_t vLength = (groupLen > 0) ? ((length() + groupLen - 1) / groupLen) : 0; //WLEDSR avoid division by zero
         if (options & MIRROR)
           vLength = (vLength + 1) /2;  // divide by 2 if mirror, leave at least a single LED
         return vLength;
@@ -790,9 +798,11 @@ class WS2812FX {
       _mode[FX_MODE_WAVESINS]                = &WS2812FX::mode_wavesins;
       _mode[FX_MODE_ROCKTAVES]               = &WS2812FX::mode_rocktaves;
       _mode[FX_MODE_2DAKEMI]                 = &WS2812FX::mode_2DAkemi;
-      _mode[FX_MODE_CUSTOMEFFECT]            = &WS2812FX::mode_customEffect; //WLEDSR Custom Effects
+#ifdef USERMOD_ARTIFX
+      _mode[FX_MODE_ARTIFX]                  = &WS2812FX::mode_ARTIFX; //WLEDMM ARTI-FX
+#endif      
       _mode[FX_MODE_3DRIPPLES]               = &WS2812FX::mode_3DRipples;
-      _mode[FX_MODE_3DSphereMove]         = &WS2812FX::mode_3DSphereMove;
+      _mode[FX_MODE_3DSphereMove]            = &WS2812FX::mode_3DSphereMove;
 
 #ifdef WLEDSR_LARGE
     // _mode[FX_MODE_2DPOOLNOISE]              = &WS2812FX::mode_2DPoolnoise; //code not in fx.cpp
@@ -801,6 +811,12 @@ class WS2812FX {
 
      _mode[FX_MODE_2DJULIA]                  = &WS2812FX::mode_2DJulia;
      _mode[FX_MODE_2DGAMEOFLIFE]             = &WS2812FX::mode_2Dgameoflife;
+
+     _mode[FX_MODE_POPCORN_AR]                = &WS2812FX::mode_popcorn_audio;
+     _mode[FX_MODE_MULTI_COMET_AR]            = &WS2812FX::mode_multi_comet_audio;
+     _mode[FX_MODE_STARBURST_AR]              = &WS2812FX::mode_starburst_audio;
+     _mode[FX_MODE_PALETTE_AR]                = &WS2812FX::mode_palette_audio;
+     _mode[FX_MODE_FIREWORKS_AR]              = &WS2812FX::mode_fireworks_audio;
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -879,6 +895,8 @@ class WS2812FX {
       gamma8(uint8_t),
       gamma8_cal(uint8_t, float),
       get_random_wheel_index(uint8_t);
+
+    inline uint8_t getCurrSegmentId(void) { return _segment_index; }
 
     inline uint8_t sin_gap(uint16_t in) {
       if (in & 0x100) return 0;
@@ -960,7 +978,9 @@ class WS2812FX {
       mode_running_random(void),
       mode_larson_scanner(void),
       mode_comet(void),
+      mode_fireworks_core(bool useAudio),       // WLEDSR
       mode_fireworks(void),
+      mode_fireworks_audio(void),               // WLEDSR
       mode_rain(void),
       mode_tetrix(void),
       mode_halloween(void),
@@ -978,7 +998,9 @@ class WS2812FX {
       mode_tricolor_fade(void),
       mode_lightning(void),
       mode_icu(void),
+      mode_multi_comet_core(bool useAudio),    // WLEDSR
       mode_multi_comet(void),
+      mode_multi_comet_audio(void),            // WLEDSR
       mode_dual_larson_scanner(void),
       mode_random_chase(void),
       mode_oscillate(void),
@@ -986,7 +1008,9 @@ class WS2812FX {
       mode_pride_2015(void),
       mode_bpm(void),
       mode_juggle(void),
+      mode_palette_core(bool useAudio),        // WLEDSR
       mode_palette(void),
+      mode_palette_audio(void),                // WLEDSR
       mode_colorwaves(void),
       mode_fillnoise8(void),
       mode_noise16_1(void),
@@ -1008,13 +1032,17 @@ class WS2812FX {
       mode_spots_fade(void),
       mode_glitter(void),
       mode_candle(void),
+      mode_starburst_core(bool useAudio),  // WLEDSR
       mode_starburst(void),
+      mode_starburst_audio(void),          // WLEDSR
       mode_exploding_fireworks(void),
       mode_bouncing_balls(void),
       mode_sinelon(void),
       mode_sinelon_dual(void),
       mode_sinelon_rainbow(void),
+      mode_popcorn_core(bool useAudio),    // WLEDSR
       mode_popcorn(void),
+      mode_popcorn_audio(void),            // WLEDSR
       mode_drip(void),
       mode_plasma(void),
       mode_percent(void),
@@ -1138,7 +1166,9 @@ class WS2812FX {
       mode_2DDrift(void),
       mode_2DColoredBursts(void),
       mode_2DJulia(void),
-      mode_customEffect(void),     //WLEDSR Custom Effects
+#ifdef USERMOD_ARTIFX
+      mode_ARTIFX(void),     //WLEDMM ARTI-FX
+#endif
       mode_3DRipples(void),
       mode_3DSphereMove(void);
     //  mode_2DPoolnoise(void),
@@ -1154,30 +1184,41 @@ class WS2812FX {
     bool
       _skipFirstMode; //private? not in AC (anymore)
 
-    //WLEDSR Custom Effects
-    float arti_external_function(uint8_t function, float par1 = floatNull, float par2 = floatNull, float par3 = floatNull, float par4 = floatNull, float par5 = floatNull);
-    float arti_get_external_variable(uint8_t variable, float par1 = floatNull, float par2 = floatNull, float par3 = floatNull);
-    void arti_set_external_variable(float value, uint8_t variable, float par1 = floatNull, float par2 = floatNull, float par3 = floatNull);
+    void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c);
+    void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c) { drawLine(x0, y0, x1, y1, RGBW32(c.r,c.g,c.b,0)); } // automatic inline
+    void drawArc(uint16_t x0, uint16_t y0, uint16_t radius, uint32_t color, uint32_t fillColor = 0);
+    void drawArc(uint16_t x0, uint16_t y0, uint16_t radius, CRGB color, CRGB fillColor = BLACK) { drawArc(x0, y0, radius, RGBW32(color.r,color.g,color.b,0), RGBW32(fillColor.r,fillColor.g,fillColor.b,0)); } // automatic inline
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //    End of Audio Reactive fork (WLEDSR)                                                                                                //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    CRGBPalette16 currentPalette;
+    uint32_t _colors_t[3];
+    uint16_t _virtualSegmentLength;
+    segment _segments[MAX_NUM_SEGMENTS] = { // SRAM footprint: 27 bytes per element
+      //WLEDSR: add f1,2,3
+      // start, stop, offset, speed, intensity, custom1, custom2, custom3, palette, mode, options, grouping, spacing, opacity (unused), color[], capabilities
+      {0, 7, 0, DEFAULT_SPEED, DEFAULT_INTENSITY, DEFAULT_Custom1, DEFAULT_Custom2, DEFAULT_Custom3, 0, DEFAULT_MODE, NO_OPTIONS, 1, 0, 255, {DEFAULT_COLOR}, 0}
+    };
+    uint8_t _segment_index = 0;
+    friend class Segment;
+    segment_runtime _segment_runtimes[MAX_NUM_SEGMENTS]; // SRAM footprint: 28 bytes per element
+    friend class Segment_runtime;
 
   private:
     uint32_t crgb_to_col(CRGB fastled);
     CRGB col_to_crgb(uint32_t);
-    CRGBPalette16 currentPalette;
     CRGBPalette16 targetPalette;
 
-    uint16_t _length, _virtualSegmentLength;
+    uint16_t _length;
     uint16_t _rand16seed;
     uint8_t _brightness;
     uint16_t _usedSegmentData = 0;
     uint16_t _transitionDur = 750;
 
-		uint8_t _targetFps = 42;
-		uint16_t _frametime = (1000/42);
+		uint8_t _targetFps = WLED_FPS;
+		uint16_t _frametime = FRAMETIME_FIXED;
     uint16_t _cumulativeFps = 2;
 
     bool
@@ -1220,28 +1261,20 @@ class WS2812FX {
       load_gradient_palette(uint8_t),
       handle_palette(void);
 
+    CRGBPalette16 getAudioPalette(int pal);
+
     uint16_t* customMappingTable = nullptr;
     uint16_t  customMappingSize  = 0;
 
     uint32_t _lastPaletteChange = 0;
     uint32_t _lastShow = 0;
 
-    uint32_t _colors_t[3];
     uint8_t _bri_t;
 
     bool _no_rgb = false;
 
-    uint8_t _segment_index = 0;
     uint8_t _segment_index_palette_last = 99;
     uint8_t _mainSegment;
-
-    segment _segments[MAX_NUM_SEGMENTS] = { // SRAM footprint: 27 bytes per element
-      //WLEDSR: add f1,2,3
-      // start, stop, offset, speed, intensity, custom1, custom2, custom3, palette, mode, options, grouping, spacing, opacity (unused), color[], capabilities
-      {0, 7, 0, DEFAULT_SPEED, DEFAULT_INTENSITY, DEFAULT_Custom1, DEFAULT_Custom2, DEFAULT_Custom3, 0, DEFAULT_MODE, NO_OPTIONS, 1, 0, 255, {DEFAULT_COLOR}, 0}
-    };
-    segment_runtime _segment_runtimes[MAX_NUM_SEGMENTS]; // SRAM footprint: 28 bytes per element
-    friend class Segment_runtime;
 
     ColorTransition transitions[MAX_NUM_TRANSITIONS]; //12 bytes per element
     friend class ColorTransition;
@@ -1413,7 +1446,7 @@ const char JSON_mode_names[] PROGMEM = R"=====([
 " ♪ Pixelwave@!,Sensitivity=64;!,!;!",
 " ♪ Juggles@!,# of balls;,!;!",
 " ♪ Matripix@!,Brightness=64;,!;!",
-" ♪ Gravimeter@Rate of fall,Sensitivity=128;,!;!",
+" ♪ Gravimeter@Rate of fall,Sensitivity=130;,!;!",
 " ♪ Plasmoid@Phase=128,# of pixels=128;,!;!",
 " ♪ Puddles@Fade rate,Puddle size;!,!;!",
 " ♪ Midnoise@Fade rate,Maximum length=128;,!;!",
@@ -1421,15 +1454,15 @@ const char JSON_mode_names[] PROGMEM = R"=====([
 " ♫ Freqwave@Time delay,Sound effect,Low bin,High bin,Pre-amp;;",
 " ♫ Freqmatrix@Time delay,Sound effect,Low bin,High bin,Sensivity;;",
 " ♫ 2D GEQ@Bar speed,Ripple decay;,,Peak Color;!",
-" ♫ Waterfall@!,Adjust color,,Select bin, Volume (minimum);!,!;!",
+" ♫ Waterfall@!,Adjust color,,Select bin=14, Volume (minimum)=62;!,!;!",
 " ♫ Freqpixels@Fade rate,Starting colour and # of pixels;;",
 " ♫ Binmap@;!,!;!",
 " ♪ Noisefire@!,!;;",
-" ♪ Puddlepeak@Fade rate,Puddle size,,Select bin,Volume (minimum);!,!;!",
+" ♪ Puddlepeak@Fade rate,Puddle size,,Select bin=14,Volume (minimum)=96;!,!;!",
 " ♫ Noisemove@Speed of perlin movement,Fade rate;,!;!",
 "2D Noise@Speed,Scale;;!",
 "Perlin Move@!,# of pixels,fade rate;,!;!",
-" ♪ Ripple Peak@Fade rate,Max # of ripples,,Select bin,Volume (minimum);!,!;!",
+" ♪ Ripple Peak@Fade rate,Max # of ripples,,Select bin=14,Volume (minimum)=62;!,!;!",
 "2D FireNoise@X scale,Y scale;;",
 "2D Squared Swirl@,,,,Blur;,,;!",
 "2D Fire2012@Speed;;",
@@ -1457,7 +1490,7 @@ const char JSON_mode_names[] PROGMEM = R"=====([
 "2D Tartan@X scale,Y scale;;!",
 "2D Polar Lights@Speed,X scale,Palette;;",
 " ♪ 2D Swirl@!,Sensitivity=64,Blur;,Bg Swirl;!",
-"2D Lissajous@X frequency,Fadetime;;!",
+"2D Lissajous@X frequency=64,Fadetime,,,Speed;;!",
 "2D Frizzles@X frequency,Y frequency;;!",
 "2D Plasma Ball@Speed;;!",
 "Flow Stripe@Hue speed,Effect speed;;",
@@ -1468,9 +1501,14 @@ const char JSON_mode_names[] PROGMEM = R"=====([
 "Wavesins@Speed,Brightness variation,Starting Color,Range of Colors,Color variation;;!",
 " ♫ Rocktaves@;,!;!",
 " ♫ 2D Akemi@Color speed,Dance ☑;Head palette,Arms & Legs,Eyes & Mouth;Face palette",
-" ⚙️ Custom Effect@Speed,Intensity,Custom 1, Custom 2, Custom 3;!;!",
+" ⚙️ ARTI-FX@Speed,Intensity,Custom 1, Custom 2, Custom 3;!;!",
 "3D Ripples@Speed=128,Interval=128;!;!",
-"3D Sphere Move@Speed=128,Interval=128;!;!"
+"3D Sphere Move@Speed=128,Interval=128;!;!",
+" 🎉 audio Popcorn@Gravity=128,Intensity=200;!;!",
+" 🔨 audio Comets@Speed=228,Intensity=240;!;!",
+" 🔨 audio Fw Starburst@Speed=128,Intensity=128;!;!",
+" 🔨 beat Palette@Speed=164;!;!",
+" 🎉 audio Fireworks@Intensity=96;!;!"
 ])=====";
 
 //WLEDSR: second part (not SR specific, but in latest SR, not in AC (Pallettes added in WLEDSR from Retro Clown->END))
@@ -1482,7 +1520,7 @@ const char JSON_palette_names[] PROGMEM = R"=====([
 "Magenta","Magred","Yelmag","Yelblu","Orange & Teal","Tiamat","April Night","Orangery","C9","Sakura",
 "Aurora","Atlantica","C9 2","C9 New","Temperature","Aurora 2","Retro Clown","Candy","Toxy Reaf","Fairy Reaf",
 "Semi Blue","Pink Candy","Red Reaf","Aqua Flash","Yelblu Hot","Lite Light","Red Flash","Blink Red","Red Shift","Red Tide",
-"Candy2"
+"Candy2","Audio Responsive Ratio","Audio Responsive Hue"
 ])=====";
 
 #endif

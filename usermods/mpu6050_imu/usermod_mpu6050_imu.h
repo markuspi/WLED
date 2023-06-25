@@ -31,6 +31,7 @@
   5. Wire up the MPU6050 as detailed above.
 */
 
+#define I2CDEV_IMPLEMENTATION I2CDEV_ARDUINO_WIRE  // WLEDSR
 #include "I2Cdev.h"
 
 #include "MPU6050_6Axis_MotionApps20.h"
@@ -42,12 +43,14 @@
     #include "Wire.h"
 #endif
 
+#if !defined(HW_PIN_SCL) && !defined(HW_PIN_SDA)
 #ifdef ARDUINO_ARCH_ESP32
   #define HW_PIN_SCL 22
   #define HW_PIN_SDA 21
 #else
   #define HW_PIN_SCL 5
   #define HW_PIN_SDA 4
+#endif
 #endif
 
 // ================================================================
@@ -97,7 +100,7 @@ class MPU6050Driver : public Usermod {
       if (!pinManager.allocateMultiplePins(pins, 2, PinOwner::HW_I2C)) { enabled = false; return; }
       // join I2C bus (I2Cdev library doesn't do this automatically)
       #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
-        Wire.begin();
+        Wire.begin(HW_PIN_SDA, HW_PIN_SCL);  // WLEDSR bugfix
         Wire.setClock(400000); // 400kHz I2C clock. Comment this line if having compilation difficulties
       #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
         Fastwire::setup(400, true);

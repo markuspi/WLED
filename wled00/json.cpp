@@ -107,7 +107,7 @@ void deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (elem["on"].is<const char*>() && elem["on"].as<const char*>()[0] == 't') on = !on;
   seg.setOption(SEG_OPTION_ON, on, id);
 
-  //WLEDSR Custom Effects
+  //WLEDSR ARTI-FX
   bool reset = elem["reset"];
   if (reset)
     strip.setReset(id);
@@ -572,6 +572,7 @@ extern void usermod_updateInfo(void); // WLEDSR
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
+  root[F("rel")] = releaseString; //WLEDSR to add bin name
   root[F("vid")] = VERSION;
   //root[F("cn")] = WLED_CODENAME;
 
@@ -734,9 +735,6 @@ void serializeInfo(JsonObject root)
   #endif
   #ifndef WLED_DISABLE_ALEXA
   os += 0x40;
-  #endif
-  #ifndef WLED_DISABLE_BLYNK
-  os += 0x20;
   #endif
   #ifdef USERMOD_CRONIXIE
   os += 0x10;
@@ -903,8 +901,15 @@ void serializePalettes(JsonObject root, AsyncWebServerRequest* request)
         if (i < 13) {
           break;
         }
-        byte tcp[72];
-        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - 13])), 72);
+        byte tcp[76] = { 255 };   // WLEDSR bugfix (ensure last entry is always a "stop" marker)
+        // WLEDSR workaround for palettes index overflow at i=73 -> gGradientPalettes index=60 out of bounds.
+        int palIndex = i-13;
+        constexpr int palMax = sizeof(gGradientPalettes)/sizeof(gGradientPalettes[0]) -1;
+        if ((palIndex < 0) || (palIndex > palMax)) { 
+            DEBUG_PRINTF("WARNING gGradientPalettes[%d] is out of bounds! max=%d. (json.cpp)\n", palIndex, palMax);
+            palIndex = palMax;  // use last valid array item
+        } // WLEDSR end
+        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[palIndex])), 72);
         setPaletteColors(curPalette, tcp);
         break;
     }

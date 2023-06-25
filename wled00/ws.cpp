@@ -136,7 +136,7 @@ bool sendLiveLedsWs(uint32_t wsClient)
 
   uint16_t used = strip.getLengthTotal();
   uint16_t n = ((used -1)/MAX_LIVE_LEDS_WS) +1; //only serve every n'th LED if count over MAX_LIVE_LEDS_WS
-  uint16_t bufSize = 6 + (used/n)*3;
+  uint16_t bufSize = 8 + (used/n)*3;
   AsyncWebSocketMessageBuffer * wsBuf = ws.makeBuffer(bufSize);
   if (!wsBuf) return false; //out of memory
   uint8_t* buffer = wsBuf->get();

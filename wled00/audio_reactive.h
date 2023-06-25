@@ -21,6 +21,7 @@
 
 static AudioSource *audioSource;
 static volatile bool disableSoundProcessing = false;      // if true, sound processing (FFT, filters, AGC) will be suspended. "volatile" as its shared between tasks.
+static unsigned useInputFilter = 0;                       // if >0 , enables a bandpass filter 80Hz-8Khz to remove noise. Applies before FFT.
 
 // ALL AUDIO INPUT PINS DEFINED IN wled.h AND CONFIGURABLE VIA UI
 
@@ -40,9 +41,9 @@ static volatile bool disableSoundProcessing = false;      // if true, sound proc
 #endif
 
 // legacy support
-#if defined(SR_DEBUG) && !defined(MIC_LOGGER) && !defined(NO_MIC_LOGGER)
-#define MIC_LOGGER
-#endif
+//#if defined(SR_DEBUG) && !defined(MIC_LOGGER) && !defined(NO_MIC_LOGGER)
+//#define MIC_LOGGER
+//#endif
 
 
 // hackers corner
@@ -62,8 +63,8 @@ constexpr int SAMPLE_RATE = 10240;            // Base sample rate in Hz - standa
 #define UDP_SYNC_HEADER "00001"
 #define UDP_SYNC_HEADER_V2 "00002"
 
-uint8_t maxVol = 10;                            // Reasonable value for constant volume for 'peak detector', as it won't always trigger
-uint8_t binNum = 8;                             // Used to select the bin for FFT based beat detection.
+uint8_t maxVol = 31;                             // (was 10) Reasonable value for constant volume for 'peak detector', as it won't always trigger
+uint8_t binNum = 14;                             // (was 8)  Used to select the bin for FFT based beat detection. 14 = 280Hz
 
 
 // 
@@ -110,8 +111,8 @@ double sampleMax = 0;                           // Max sample over a few seconds
 
 
 uint8_t myVals[32];                             // Used to store a pile of samples because WLED frame rate and WLED sample rate are not synchronized. Frame rate is too low.
-bool samplePeak = 0;                            // Boolean flag for peak. Responding routine must reset this flag
-bool udpSamplePeak = 0;                         // Boolean flag for peak. Set at the same tiem as samplePeak, but reset by transmitAudioData
+uint8_t samplePeak = 0;                         // Flag for peak. 0 = no peak, 1 = possible peak (often), 2=sure peak (every 1-2seconds)
+uint8_t udpSamplePeak = 0;                      // Set at the same tiem as samplePeak, but reset by transmitAudioData
 constexpr int delayMs = 10;                     // I don't want to sample too often and overload WLED
 static int micIn = 0.0;                         // Current sample starts with negative values and large values, which is why it's 16 bit signed
 int sampleRaw;                                  // Current sample. Must only be updated ONCE!!!
@@ -163,6 +164,12 @@ static int linearNoise[16] = { 34, 28, 26, 25, 20, 12, 9, 6, 4, 4, 3, 2, 2, 2, 2
 // Table of multiplication factors so that we can even out the frequency response.
 static float fftResultPink[16] = {1.70,1.71,1.73,1.78,1.68,1.56,1.55,1.63,1.79,1.62,1.80,2.06,2.47,3.35,6.83,9.55};
 
+// shared vars for debugging
+#ifdef MIC_LOGGER
+static volatile float    micReal_min = 0.0f;             // MicIn data min from last batch of samples
+static volatile float    micReal_avg = 0.0f;             // MicIn data average (from last batch of samples)
+static volatile float    micReal_max = 0.0f;             // MicIn data max from last batch of samples
+#endif
 
 // default "V1" SR 0.13.x audiosync struct - 83 Bytes
 struct audioSyncPacket {
@@ -189,7 +196,7 @@ struct audioSyncPacket_v2 {
       float  FFT_MajorPeak;   //  04 Bytes
 };
 
-double mapf(double x, double in_min, double in_max, double out_min, double out_max);
+#define UDPSOUND_MAX_PACKET 96 // max packet size for audiosync, with a bit of "headroom"
 
 bool isValidUdpSyncVersion(char header[6]) {
   if (strncmp(header, UDP_SYNC_HEADER, 5) == 0) {
@@ -210,6 +217,8 @@ bool isValidUdpSyncVersion2(char header[6]) {
 /* get current max sample ("published" by the I2S and FFT thread) and perform some sound processing */
 void getSample() {
   const int AGC_preset = (soundAgc > 0)? (soundAgc-1): 0; // make sure the _compiler_ knows this value will not change while we are inside the function
+  static unsigned long lastSoundTime = 0; // for delaying noise gate
+  constexpr long MinTimeSilence = 1600;   // 1600ms "grace time" before closing noise gate - to avoid chattering
 
   #ifdef WLED_DISABLE_SOUND
     micIn = inoise8(millis(), millis());          // Simulated analog read
@@ -220,7 +229,8 @@ void getSample() {
 
   // remove remaining DC offset from sound signal
   micLev = ((micLev * 8191.0) + micDataReal) / 8192.0;                // takes a few seconds to "catch up" with the Mic Input
-  if(micIn < micLev) micLev = ((micLev * 31.0) + micDataReal) / 32.0; // align MicLev to lowest input signal
+  //if(micIn < micLev) micLev = ((micLev * 31.0) + micDataReal) / 32.0; // align MicLev to lowest input signal
+  if(micDataReal < (micLev-1.2)) micLev = ((micLev * 31.0) + micDataReal) / 32.0; // align with lowest input, but allow some "overlap" to stabilize the filter
   micIn -= micLev;                                // Let's center it to 0 now
 
   // Using an exponential filter to smooth out the signal. We'll add controls for this in a future release.
@@ -228,8 +238,13 @@ void getSample() {
   expAdjF = weighting * micInNoDC + ((1.0-weighting) * expAdjF);
   expAdjF = fabsf(expAdjF);                          // Now (!) take the absolute value
 
-  expAdjF = (expAdjF <= soundSquelch) ? 0: expAdjF; // simple noise gate
-  if ((soundSquelch == 0) && (expAdjF < 0.25f)) expAdjF = 0;
+  //expAdjF = (expAdjF <= soundSquelch) ? 0: expAdjF; // super simple noise gate
+  //if ((soundSquelch == 0) && (expAdjF < 0.25f)) expAdjF = 0;
+  if ((expAdjF <= soundSquelch) || ((soundSquelch == 0) && (expAdjF < 0.25f))) {  // noise gate with "closing delay"
+    if ((millis() - lastSoundTime) > MinTimeSilence) expAdjF = 0.0;
+  } else {
+    lastSoundTime = millis();
+  }
 
   tmpSample = expAdjF;
   micIn = abs(micIn);                             // And get the absolute value of each sample
@@ -243,10 +258,11 @@ void getSample() {
   // keep "peak" sample, but decay value if current sample is below peak
   if ((sampleMax < sampleReal) && (sampleReal > 0.5)) {
       sampleMax = sampleMax + 0.5 * (sampleReal - sampleMax);          // new peak - with some filtering
-      if (((maxVol < 6) || (binNum < 9)) && (millis() - timeOfPeak > 80)) {              // another simple way to detect samplePeak
-        samplePeak = 1;
+      //if (((maxVol < 6) || (binNum < 9)) && (millis() - timeOfPeak > 80) && (sampleAvg > 1)) {              // another simple way to detect samplePeak
+      if ((millis() - timeOfPeak > 80) && (sampleAvg > 1)) {                                                  // no iffs-n-butts
+        samplePeak = 2;
         timeOfPeak = millis();
-        udpSamplePeak = 1;
+        udpSamplePeak = 2;
         userVar1 = samplePeak;
       }
   } else {
@@ -261,7 +277,7 @@ void getSample() {
   sampleAvg = fabsf(sampleAvg);                          // make sure we have a positive value
 
   // Fixes private class variable compiler error. Unsure if this is the correct way of fixing the root problem. -THATDONFC
-  uint16_t MinShowDelay = strip.getMinShowDelay();
+  uint16_t MinShowDelay = max((uint16_t)33,strip.getMinShowDelay());
 
   if (millis() - timeOfPeak > MinShowDelay) {   // Auto-reset of samplePeak after a complete frame has passed.
     samplePeak = 0;
@@ -270,12 +286,12 @@ void getSample() {
 
   if (userVar1 == 0) samplePeak = 0;
   // Poor man's beat detection by seeing if sample > Average + some value.
-  if ((maxVol > 1) && (binNum > 4) && (fftBin[binNum] > maxVol) && (millis() - timeOfPeak > 100)) {    // This goes through ALL of the 255 bins - but ignores stupid settings
+  if ((maxVol > 1) && (binNum > 6) && (fftBin[binNum] > maxVol) && (millis() - timeOfPeak > 100) && (sampleAvg > 1)) {    // This goes through ALL of the 255 bins - but ignores stupid settings
   //  if (sample > (sampleAvg + maxVol) && millis() > (peakTime + 200)) {
   // Then we got a peak, else we don't. The peak has to time out on its own in order to support UDP sound sync.
-    samplePeak = 1;
-    timeOfPeak = millis();
-    udpSamplePeak = 1;
+    samplePeak = max(uint8_t(1), samplePeak);   // ignore this peak if we already have an active "good peak"
+    if (samplePeak == 1) timeOfPeak = millis();
+    udpSamplePeak = max(uint8_t(1), udpSamplePeak);
     userVar1 = samplePeak;
   }
 } // getSample()
@@ -428,11 +444,15 @@ void limitSampleDynamics(void) {
 // Begin FFT Code //
 ////////////////////
 
-// using latest AruinoFFT lib, because it supportd float and its much faster!
+// using latest AruinoFFT lib, because it supports float and its much faster!
 // lib_deps += https://github.com/kosme/arduinoFFT#develop @ 1.9.2
-#define FFT_SPEED_OVER_PRECISION     // enables use of reciprocals (1/x etc), and an a few other speedups
-#define FFT_SQRT_APPROXIMATION       // enables "quake3" style inverse sqrt
-//#define sqrt(x) sqrtf(x)             // little hack that reduces FFT time by 50% on ESP32 (as alternative to FFT_SQRT_APPROXIMATION)
+
+// The following optimizations seem to be optimal on ESP32 (~1.5ms per FFT run)
+// #define FFT_SPEED_OVER_PRECISION     // enables use of reciprocals (1/x etc), and an a few other speedups - WLEDMM not faster on ESP32
+// #define FFT_SQRT_APPROXIMATION       // enables "quake3" style inverse sqrt                               - WLEDMM slower on ESP32
+#define sqrt(x) sqrtf(x)                // little hack that reduces FFT time by 10-50% on ESP32 (as alternative to FFT_SQRT_APPROXIMATION)
+#define sqrt_internal sqrtf             // see https://github.com/kosme/arduinoFFT/pull/83
+
 #include "arduinoFFT.h"
 
 void transmitAudioData() {
@@ -488,7 +508,7 @@ static void extract_v2_packet(int packetSize, uint8_t *fftBuff)
     multAgc      = 1.0f;      
 
     // auto-reset sample peak. Need to do it here, because getSample() is not running
-    uint16_t MinShowDelay = strip.getMinShowDelay();
+    uint16_t MinShowDelay = max((uint16_t)33, strip.getMinShowDelay());
     if (millis() - timeOfPeak > MinShowDelay) {   // Auto-reset of samplePeak after a complete frame has passed.
       samplePeak = 0;
       udpSamplePeak = 0;
@@ -496,9 +516,9 @@ static void extract_v2_packet(int packetSize, uint8_t *fftBuff)
     if (userVar1 == 0) samplePeak = 0;
     // Only change samplePeak IF it's currently false.
     // If it's true already, then the animation still needs to respond.
-    if (!samplePeak) {
+    if (samplePeak == 0) {
       samplePeak = receivedPacket.samplePeak;
-      if (samplePeak) timeOfPeak = millis();
+      if (samplePeak > 0) timeOfPeak = millis();
       udpSamplePeak = samplePeak;
       userVar1 = samplePeak;
     }
@@ -532,6 +552,104 @@ float fftAdd( int from, int to) {
   return result;
 }
 
+
+// Bandpass filter for PDM microphones
+static void runMicFilter(uint16_t numSamples, float *sampleBuffer) {          // pre-filtering of raw samples (band-pass)
+  // band pass filter - can reduce noise floor by a factor of 50
+  // downside: frequencies below 60Hz will be ignored
+
+  // low frequency cutoff parameter - see https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency
+  //constexpr float alpha = 0.062f;   // 100Hz
+  constexpr float alpha = 0.04883f; //  80Hz
+  //constexpr float alpha = 0.03662f; //  60Hz
+  //constexpr float alpha = 0.0225f;  //  40Hz
+  // high frequency cutoff  parameter
+  //constexpr float beta1 = 0.75;    //  5Khz
+  //constexpr float beta1 = 0.82;    //  7Khz
+  constexpr float beta1 = 0.8285;  //  8Khz
+  //constexpr float beta1 = 0.85;    // 10Khz
+
+  constexpr float beta2 = (1.0f - beta1) / 2.0;
+  static float last_vals[2] = { 0.0f }; // FIR high freq cutoff filter
+  static float lowfilt = 0.0f;          // IIR low frequency cutoff filter
+
+  for (int i=0; i < numSamples; i++) {
+    // FIR lowpass, to remove high frequency noise
+    float highFilteredSample;
+    if (i < (numSamples-1)) 
+      highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0] + beta2*sampleBuffer[i+1];  // smooth out spikes
+    else 
+      highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0]  + beta2*last_vals[1];      // spcial handling for last sample in array
+    last_vals[1] = last_vals[0];
+    last_vals[0] = sampleBuffer[i];
+    sampleBuffer[i] = highFilteredSample;
+    // IIR highpass, to remove low frequency noise
+    lowfilt += alpha * (sampleBuffer[i] - lowfilt);
+    sampleBuffer[i] = sampleBuffer[i] - lowfilt;
+  }  
+}
+
+// sample smoothing, by using a sliding average FIR highpass filter (first half of MicFilter from above)
+static void runMicSmoothing(uint16_t numSamples, float *sampleBuffer) {
+  constexpr float beta1 = 0.8285;    //  ~8Khz
+  constexpr float beta2 = (1.0f - beta1) / 2.0;  // note to self: better use biquad ?
+  static float last_vals[2] = { 0.0f }; // FIR filter buffer
+
+  for (int i=0; i < numSamples; i++) {
+    float highFilteredSample;
+    if (i < (numSamples-1)) 
+      highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0] + beta2*sampleBuffer[i+1];  // smooth out spikes
+    else 
+      highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0]  + beta2*last_vals[1];      // spcial handling for last sample in array
+    last_vals[1] = last_vals[0];
+    last_vals[0] = sampleBuffer[i];
+    sampleBuffer[i] = highFilteredSample;
+  }  
+}
+
+// a variation of above, with higher cut-off frequency
+static void runMicSmoothing_v2(uint16_t numSamples, float *sampleBuffer) {
+  constexpr float beta1 = 0.85;    // ~10Khz
+  constexpr float beta2 = (1.0f - beta1) / 2.0;  // note to self: better use biquad ?
+  static float last_vals[2] = { 0.0f }; // FIR filter buffer
+
+  for (int i=0; i < numSamples; i++) {
+    float highFilteredSample;
+    if (i < (numSamples-1)) 
+      highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0] + beta2*sampleBuffer[i+1];  // smooth out spikes
+    else 
+      highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0]  + beta2*last_vals[1];      // spcial handling for last sample in array
+    last_vals[1] = last_vals[0];
+    last_vals[0] = sampleBuffer[i];
+    sampleBuffer[i] = highFilteredSample;
+  }  
+}
+
+// High-Pass filter, 6db per octave
+static void runHighFilter6db(const float filter, uint16_t numSamples, float *sampleBuffer) {
+  static float lowfilt = 0.0f;          // IIR low frequency cutoff filter
+  for (int i=0; i < numSamples; i++) {
+    lowfilt += filter * (sampleBuffer[i] - lowfilt); // lowpass
+    sampleBuffer[i] = sampleBuffer[i] - lowfilt;     // lowpass --> highpass
+  }
+}
+
+// High-Pass filter, 12db per octave
+static void runHighFilter12db(const float filter, uint16_t numSamples, float *sampleBuffer) {
+  static float lowfilt1 = 0.0f;          // IIR low frequency cutoff filter - first pass = 6db
+  static float lowfilt2 = 0.0f;          // IIR low frequency cutoff filter - second pass = 12db
+  for (int i=0; i < numSamples; i++) {
+    lowfilt1 += filter * (sampleBuffer[i] - lowfilt1); // first lowpass 6db
+    // lowfilt2 += filter * (lowfilt1 - lowfilt2);     // second lowpass +6db
+    // sampleBuffer[i] = sampleBuffer[i] - lowfilt2;   // lowpass --> highpass
+    // implementation below has better results, compared to the code above
+    float pass1Out = sampleBuffer[i] - lowfilt1;       // output from first stage (lowpass --> highpass)
+    lowfilt2 += filter * (pass1Out - lowfilt2);        // second lowpass +6db
+    sampleBuffer[i] = pass1Out - lowfilt2;             // lowpass --> highpass
+  }
+}
+
+
 // FFT main code
 void FFTcode( void * parameter) {
   DEBUG_PRINT("FFT running on core: "); DEBUG_PRINTLN(xPortGetCoreID());
@@ -564,7 +682,45 @@ void FFTcode( void * parameter) {
     //micDataSm = (uint16_t)vReal[samples - 1]; // will do a this a bit later
 
     // micDataSm = ((micData * 3) + micData)/4;
+    #ifdef MIC_LOGGER
+    float datMin = 0.0f;
+    float datMax = 0.0f;
+    double datAvg = 0.0f;
+    for (int i=0; i < samplesFFT; i++) {
+      if (i==0) {
+        datMin = datMax = vReal[i];
+      } else {
+        if (datMin >  vReal[i]) datMin =  vReal[i];
+        if (datMax <  vReal[i]) datMax =  vReal[i];
+      }
+      datAvg +=  vReal[i];
+    }
+    #endif
 
+    // input filters applied before FFT
+    if (useInputFilter > 0) {
+      // filter parameter - we use constexpr as it does not need any RAM (evaluted at compile time)
+      // value = 1 - exp(-2*PI * FFilter / FSample);  // FFilter: filter cutoff frequency; FSample: sampling frequency
+      constexpr float filter30Hz  = 0.01823938f;  // rumbling = 10-25hz
+      constexpr float filter70Hz  = 0.04204211f;  // mains hum = 50-60hz
+      constexpr float filter120Hz = 0.07098564f;  // bad microphones deliver noise below 120Hz
+      constexpr float filter185Hz = 0.10730882f;  // environmental noise is strongest below 180hz: wind, engine noise, ...
+      switch(useInputFilter) {
+        case 1: runMicFilter(samplesFFT, vReal); break;                   // PDM microphone bandpass
+        case 2: runHighFilter12db(filter30Hz, samplesFFT, vReal); break;  // rejects rumbling noise
+        case 3: runMicSmoothing_v2(samplesFFT, vReal);                    // slightly reduce high frequency noise and artefacts
+                runHighFilter12db(filter70Hz, samplesFFT, vReal);         // rejects rumbling + mains hum
+          break;
+        case 4: runMicSmoothing_v2(samplesFFT, vReal);                    // slightly reduce high frequency noise and artefacts
+                runHighFilter6db(filter120Hz, samplesFFT, vReal);         // rejects everything below 110Hz
+          break;
+        case 5: runMicSmoothing(samplesFFT, vReal);               // reduce high frequency noise and artefacts
+                runHighFilter6db(filter185Hz, samplesFFT, vReal); // reject low frequency noise
+          break;
+      }
+    }
+
+    // find highest sample in the batch
     const int halfSamplesFFT = samplesFFT / 2;   // samplesFFT divided by 2
     float maxSample1 = 0.0;                         // max sample from first half of FFT batch
     float maxSample2 = 0.0;                         // max sample from second half of FFT batch
@@ -585,6 +741,11 @@ void FFTcode( void * parameter) {
     // release first sample to volume reactive effects
     micDataSm = (uint16_t)maxSample1;
     micDataReal = maxSample1;
+    #ifdef MIC_LOGGER
+    micReal_min = datMin;
+    micReal_max = datMax;
+    micReal_avg = datAvg / samplesFFT;
+    #endif
 
     FFT.dcRemoval();                                            // remove DC offset
     //FFT.windowing(FFTWindow::Flat_top, FFTDirection::Forward);  // Weigh data using "Flat Top" window - better amplitude accuracy
@@ -689,20 +850,22 @@ void FFTcode( void * parameter) {
 void logAudio() {
 #ifdef MIC_LOGGER
   // Debugging functions for audio input and sound processing. Comment out the values you want to see
-
-  Serial.print("micReal:");    Serial.print(micDataReal);  Serial.print("\t");
+  Serial.print("micMin:");      Serial.print(0.5f * micReal_min);   Serial.print("\t");
+  Serial.print("micMax:");      Serial.print(0.5f * micReal_max);   Serial.print("\t");
+  Serial.print("micReal:");     Serial.print(micDataReal + 256.0f); Serial.print("\t");
   //Serial.print("micData:");    Serial.print(micData);     Serial.print("\t");
   //Serial.print("micDataSm:");  Serial.print(micDataSm);   Serial.print("\t");
   //Serial.print("micIn:");      Serial.print(micIn);       Serial.print("\t");
-  //Serial.print("micLev:");     Serial.print(micLev);      Serial.print("\t");
+  //Serial.print("micLev:");     Serial.print(micLev + 256.0f); Serial.print("\t");
   //Serial.print("sampleReal:"); Serial.print(sampleReal);  Serial.print("\t");
   //Serial.print("sample:");     Serial.print(sample);      Serial.print("\t");
   //Serial.print("sampleAvg:");  Serial.print(sampleAvg);   Serial.print("\t");
   //Serial.print("sampleMax:");  Serial.print(sampleMax);   Serial.print("\t");
   //Serial.print("samplePeak:");  Serial.print((samplePeak!=0) ? 128:0);   Serial.print("\t");
   //Serial.print("multAgc:");    Serial.print(multAgc, 4);  Serial.print("\t");
-  Serial.print("sampleAgc:");   Serial.print(sampleAgc);   Serial.print("\t");
+  Serial.print("sampleAgc:");   Serial.print(sampleAgc + 256.0f);   Serial.print("\t");
   Serial.println(" ");
+  Serial.flush();
 
 #endif
 

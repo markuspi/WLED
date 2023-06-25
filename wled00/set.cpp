@@ -19,7 +19,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 {
 
   //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec 7: DMX 8: usermods 9: sound
-  if (subPage <1 || subPage >9) return;
+  if (subPage <1 || subPage >10) return; //WLEDSR: 10 as update also added
 
   //WIFI SETTINGS
   if (subPage == 1)
@@ -277,15 +277,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     alexaEnabled = request->hasArg(F("AL"));
     strlcpy(alexaInvocationName, request->arg(F("AI")).c_str(), 33);
 
-    #ifndef WLED_DISABLE_BLYNK
-    strlcpy(blynkHost, request->arg("BH").c_str(), 33);
-    t = request->arg(F("BP")).toInt();
-    if (t > 0) blynkPort = t;
-
-    if (request->hasArg("BK") && !request->arg("BK").equals(F("Hidden"))) {
-      strlcpy(blynkApiKey, request->arg("BK").c_str(), 36); initBlynk(blynkApiKey, blynkHost, blynkPort);
-    }
-    #endif
     t = request->arg(F("ASE")).toInt();
     if (t == 0) {
       // 0 == udp audio sync off
@@ -574,10 +565,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == 9)
   {
 
-    if (audioPin>=0 && pinManager.isPinAllocated(audioPin)) pinManager.deallocatePin(audioPin, PinOwner::AnalogMic);
-    if (i2ssdPin>=0 && pinManager.isPinAllocated(i2ssdPin)) pinManager.deallocatePin(i2ssdPin, PinOwner::DigitalMic);
-    if (i2swsPin>=0 && pinManager.isPinAllocated(i2swsPin)) pinManager.deallocatePin(i2swsPin, PinOwner::DigitalMic);
-    if (i2sckPin>=0 && pinManager.isPinAllocated(i2sckPin)) pinManager.deallocatePin(i2sckPin, PinOwner::DigitalMic);
+    if (audioPin>=0 && pinManager.isPinAllocated(audioPin, PinOwner::AnalogMic)) pinManager.deallocatePin(audioPin, PinOwner::AnalogMic);
+    if (i2ssdPin>=0 && pinManager.isPinAllocated(i2ssdPin, PinOwner::DigitalMic)) pinManager.deallocatePin(i2ssdPin, PinOwner::DigitalMic);
+    if (i2swsPin>=0 && pinManager.isPinAllocated(i2swsPin, PinOwner::DigitalMic)) pinManager.deallocatePin(i2swsPin, PinOwner::DigitalMic);
+    if (i2sckPin>=0 && pinManager.isPinAllocated(i2sckPin, PinOwner::DigitalMic)) pinManager.deallocatePin(i2sckPin, PinOwner::DigitalMic);
+    if (mclkPin>=0 && pinManager.isPinAllocated(mclkPin, PinOwner::DigitalMic)) pinManager.deallocatePin(mclkPin, PinOwner::DigitalMic);
 
     int t = 0;
     t = request->arg(F("SQ")).toInt();
@@ -604,6 +596,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     // Digital Mic I2S SCK pin
     t = request->arg(F("CK")).toInt();
     if (t >= -1 && t <=39) i2sckPin = t;
+
+    // Digital Mic I2S MCLK pin
+    t = request->arg(F("MCLK")).toInt();
+    if (t >= -1 && t <=3 && t!=2) mclkPin = t;
 
     // Digital mic mode
     uint8_t newDmType = request->arg(F("DMM")).toInt();

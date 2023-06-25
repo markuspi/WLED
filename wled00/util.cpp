@@ -66,3 +66,27 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
   dest[printedChars] = '\0';
   return strlen(dest);
 }
+
+
+CRGB getCRGBForBand(int x, int pal) { 
+  extern int fftResult[];                         // summary of bins array. 16 summary bins.
+  CRGB value;
+  CHSV hsv;
+  if(pal == 71) { // bit hacky to use palette id here, but don't want to litter the code with lots of different methods. TODO: add enum for palette creation type
+    if(x == 1) {
+      value = CRGB(uint8_t(fftResult[10]/2), uint8_t(fftResult[4]/2), uint8_t(fftResult[0]/2));
+    }
+    else if(x == 255) {
+      value = CRGB(uint8_t(fftResult[10]/2), uint8_t(fftResult[0]/2), uint8_t(fftResult[4]/2));
+    } 
+    else {
+      value = CRGB(uint8_t(fftResult[0]/2), uint8_t(fftResult[4]/2), uint8_t(fftResult[10]/2));
+    } 
+  }
+  else if(pal == 72) {
+    int b = map(x, 1, 255, 0, 8); // convert palette position to lower half of freq band
+    hsv = CHSV(uint8_t(fftResult[b]), 255, uint8_t(map(fftResult[b], 0, 255, 30, 255)));  // pick hue
+    hsv2rgb_rainbow(hsv, value);  // convert to R,G,B
+  }
+  return value;
+} 

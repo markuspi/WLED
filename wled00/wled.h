@@ -8,8 +8,8 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2210301                // WLEDSR specific version
-#define SR_VERSION_NAME "0.13.3"       // WLEDSR version name --> some files need manual updating: package.json, package-lock.json, improv.cpp
+#define VERSION 2306251                // WLEDSR specific version
+#define SR_VERSION_NAME "0.13.4-beta"  // WLEDSR version name --> some files need manual updating: package.json, package-lock.json, improv.cpp
 
 #define AC_VERSION 2208222             // AC WLED base version; last updated by PR #239 -> Merge AC-0.13.3 into dev
 #define AC_VERSION_NAME "0.13.3"       // AC WLED base version name; last change 22.August 2022
@@ -39,7 +39,12 @@
 #ifndef WLED_DISABLE_MQTT
   #define WLED_ENABLE_MQTT         // saves 12kb
 #endif
-#define WLED_ENABLE_ADALIGHT     // saves 500b only (uses GPIO3 (RX) for serial)
+#ifndef WLED_DISABLE_ADALIGHT      // can be used to disable reading commands from serial RX pin (see issue #3128). 
+  #define WLED_ENABLE_ADALIGHT     // disable saves 5Kb (uses GPIO3 (RX) for serial). Related serial protocols: Adalight/TPM2, Improv, Serial JSON 
+#else
+  #undef WLED_ENABLE_ADALIGHT      // disable has priority over enable
+#endif
+
 //#define WLED_ENABLE_DMX          // uses 3.5kb (use LEDPIN other than 2)
 //#define WLED_ENABLE_JSONLIVE     // peek LED output via /json/live (WS binary peek is always enabled)
 #ifndef WLED_DISABLE_LOXONE
@@ -80,6 +85,7 @@
   #include <user_interface.h>
   }
 #else // ESP32
+  #include <HardwareSerial.h>  // ensure we have the correct "Serial" on new MCUs (depends on ARDUINO_USB_MODE and ARDUINO_USB_CDC_ON_BOOT)
   #include <WiFi.h>
   #include <ETH.h>
   #include "esp_wifi.h"
@@ -95,6 +101,8 @@
   #endif
   #include "esp_task_wdt.h"
 #endif
+#include <Wire.h>
+#include <SPI.h>
 
 #include "src/dependencies/network/Network.h"
 
@@ -121,9 +129,6 @@
   #define ESPALEXA_MAXDEVICES 1
   // #define ESPALEXA_DEBUG
   #include "src/dependencies/espalexa/Espalexa.h"
-#endif
-#ifndef WLED_DISABLE_BLYNK
-  #include "src/dependencies/blynk/BlynkSimpleEsp.h"
 #endif
 
 #ifdef WLED_ENABLE_DMX
@@ -241,6 +246,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 
 // Global Variable definitions
 WLED_GLOBAL char versionString[] _INIT(TOSTRING(WLED_VERSION));
+WLED_GLOBAL char releaseString[] _INIT(TOSTRING(WLED_RELEASE_NAME)); //WLEDSR: to show on update page
 #define WLED_CODENAME "Toki+SR"
 
 // AP and OTA default passwords (for maximum security change them!)
@@ -295,6 +301,11 @@ WLED_GLOBAL int8_t i2sckPin _INIT(14);
 #else
 WLED_GLOBAL int8_t i2sckPin _INIT(I2S_CKPIN);
 #endif
+#ifndef MCLK_PIN
+WLED_GLOBAL int8_t mclkPin  _INIT(0);
+#else
+WLED_GLOBAL int8_t mclkPin _INIT(MCLK_PIN);
+#endif
 
 //WLED_GLOBAL byte presetToApply _INIT(0);
 
@@ -311,7 +322,7 @@ WLED_GLOBAL byte apBehavior _INIT(AP_BEHAVIOR_BOOT_NO_CONN);       // access poi
 WLED_GLOBAL IPAddress staticIP      _INIT_N(((  0,   0,  0,  0))); // static IP of ESP
 WLED_GLOBAL IPAddress staticGateway _INIT_N(((  0,   0,  0,  0))); // gateway (router) IP
 WLED_GLOBAL IPAddress staticSubnet  _INIT_N(((255, 255, 255, 0))); // most common subnet in home networks
-#ifdef ARDUINO_ARCH_ESP32
+#if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ESP32_PICO)    // WLEDSR: PICO board gets a bit warm with "disable wifi sleep"
 WLED_GLOBAL bool noWifiSleep _INIT(true);                          // disabling modem sleep modes will increase heat output and power usage, but may help with connection issues
 #else
 WLED_GLOBAL bool noWifiSleep _INIT(false);
@@ -342,10 +353,18 @@ WLED_GLOBAL byte briS     _INIT(128);                     // default brightness
 
 //WLEDSR
 WLED_GLOBAL byte inputLevelS    _INIT(128);         // WLEDSR default inputLevel
+#if !defined(SR_SQUELCH)
 WLED_GLOBAL byte soundSquelch   _INIT(10);          // default squelch value for volume reactive routines
-WLED_GLOBAL byte sampleGain     _INIT(40);           // default sample gain
 WLED_GLOBAL byte soundAgc       _INIT(0);           // default Automagic gain control
-WLED_GLOBAL uint16_t noiseFloor _INIT(100);         // default squelch value for FFT reactive routines
+#else
+WLED_GLOBAL byte soundSquelch   _INIT(SR_SQUELCH);  // default squelch value
+WLED_GLOBAL byte soundAgc       _INIT(2);           // squelch was provided - we can enable AGC by default
+#endif
+#if !defined(SR_GAIN)
+WLED_GLOBAL byte sampleGain     _INIT(40);          // default sample gain
+#else
+WLED_GLOBAL byte sampleGain     _INIT(SR_GAIN);     // default sample gain
+#endif
 
 WLED_GLOBAL byte nightlightTargetBri _INIT(0);      // brightness after nightlight is over
 WLED_GLOBAL byte nightlightDelayMins _INIT(60);
@@ -396,12 +415,6 @@ WLED_GLOBAL bool notifyTwice  _INIT(false);                       // notificatio
 
 WLED_GLOBAL bool alexaEnabled _INIT(false);                       // enable device discovery by Amazon Echo
 WLED_GLOBAL char alexaInvocationName[33] _INIT("Light");          // speech control name of device. Choose something voice-to-text can understand
-
-#ifndef WLED_DISABLE_BLYNK
-WLED_GLOBAL char blynkApiKey[36] _INIT("");                       // Auth token for Blynk server. If empty, no connection will be made
-WLED_GLOBAL char blynkHost[33] _INIT("blynk-cloud.com");          // Default Blynk host
-WLED_GLOBAL uint16_t blynkPort _INIT(80);                         // Default Blynk port
-#endif
 
 WLED_GLOBAL uint16_t realtimeTimeoutMs _INIT(2500);               // ms timeout of realtime mode before returning to normal mode
 WLED_GLOBAL int arlsOffset _INIT(0);                              // realtime LED offset
@@ -741,6 +754,9 @@ WLED_GLOBAL TaskHandle_t FFT_Task; //WLEDSR: Moved from audio_reactive.h to glob
 #endif
 #define WLED_WIFI_CONFIGURED (strlen(clientSSID) >= 1 && strcmp(clientSSID, DEFAULT_CLIENT_SSID) != 0)
 #define WLED_MQTT_CONNECTED (mqtt != nullptr && mqtt->connected())
+
+//macro to convert F to const (needed by some usermods)
+#define SET_F(x)  (const char*)F(x)
 
 //color mangling macros
 #define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))

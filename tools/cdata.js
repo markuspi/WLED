@@ -413,6 +413,14 @@ const char PAGE_dmxmap[] PROGMEM = R"=====()=====";
       append: ")=====",
       method: "plaintext",
       filter: "html-minify",
+      mangle: (str) =>
+        str
+          .replace(/\<link rel="stylesheet".*\>/gms, "")
+          .replace(/\<style\>.*\<\/style\>/gms, "%CSS%%SCSS%")
+          .replace(
+            /function GetV().*\<\/script\>/gms,
+            "function GetV() {var d=document;\n"
+          ),
     },
     {
       file: "welcome.htm",

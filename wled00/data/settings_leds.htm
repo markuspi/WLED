@@ -11,6 +11,7 @@
     function H(){window.open("https://kno.wled.ge/features/settings/#led-settings");}
 		function B(){window.open("/settings","_self");}
     function gId(n){return d.getElementById(n);}
+    function hideNoIR(){gId("irOnOff2").style.display="none";}
     function off(n){d.getElementsByName(n)[0].value = -1;}
     var timeout;
     function showToast(text, error = false)
@@ -120,6 +121,11 @@
       var isRGBW = false, memu = 0;
 
       gId('ampwarning').style.display = (d.Sf.MA.value > 7200) ? 'inline':'none';
+
+			gId('fpswarning').style.display = (d.Sf.FR.value > 79) ? 'block':'none'; // WLEDSR
+			gId('fpshelp1').style.display = ((d.Sf.FR.value > 80) && (d.Sf.FR.value < 132)) ? 'block':'none'; // WLEDSR
+			gId('fpshelp2').style.display = ((d.Sf.FR.value > 132) && (d.Sf.FR.value < 196)) ? 'block':'none'; // WLEDSR
+			gId('fpshelp3').style.display = (d.Sf.FR.value > 196) ? 'block':'none'; // WLEDSR
 
       if (d.Sf.LA.value == 255) laprev = 12;
       else if (d.Sf.LA.value > 0) laprev = d.Sf.LA.value;
@@ -546,8 +552,8 @@ Length: <input type="number" name="XC${i}" id="xc${i}" class="l" min="1" max="65
     </select><br>
     <div id="mpdiv">
     <h3>2D Matrix</h3>
-    Width <input id="mxw" name="MXW" type="number" min="1" max="1500" oninput="UI()"> x
-    Height <input id="mxh" name="MXH" type="number" min="1" max="1500" oninput="UI()"><br>
+    Width <input id="mxw" name="MXW" type="number" min="1" max="16384" oninput="UI()"> x
+    Height <input id="mxh" name="MXH" type="number" min="1" max="16384" oninput="UI()"><br>
     <div id="2dwarning" style="color: orange; display: inline;">
       &#9888; width x height should match LED count!<br>
     </div>
@@ -624,6 +630,9 @@ Length: <input type="number" name="XC${i}" id="xc${i}" class="l" min="1" max="65
     <hr style="width:260px">
     <div id="btns"></div>
     Touch threshold: <input type="number" class="s" min="0" max="100" name="TT" required><br>
+    <div id="irOnOff2">
+      <em style="color:darkorange">This firmware build does not include IR Remote support. <br></em>
+    </div>
     IR GPIO: <input type="number" min="-1" max="40" name="IR" onchange="UI()" class="xs"><select name="IT" onchange="UI()">
     <option value=0>Remote disabled</option>
     <option value=1>24-key RGB</option>
@@ -683,7 +692,15 @@ Length: <input type="number" name="XC${i}" id="xc${i}" class="l" min="1" max="65
 			<option value="2">Linear (never wrap)</option>
 			<option value="3">None (not recommended)</option>
 		</select><br>
-		Target refresh rate: <input type="number" class="s" min="1" max="120" name="FR" required> FPS
+		Target refresh rate: <input type="number" class="s" min="1" max="250" name="FR" oninput="UI()" required> FPS
+		<div id="fpswarning" style="color: orange; display: none;">
+			&#9888; WLED may become unstable above 80 fps.<br>
+			To protect your setup,
+			please make sure to backup WLED configuration and presets before raising target FPS above 80!<br>
+		</div>
+		<div id="fpshelp1" style="color: orange; display: none;">For a very smooth experience, use less than 300 LEDs per output!<br>      </div><!-- up to 120 fps on ws281x -->
+		<div id="fpshelp2" style="color: orange; display: none;">For an extremely smooth experience, use less than 180 LEDs per output!<br></div><!-- up to 180 fps on WS281x -->
+		<div id="fpshelp3" style="color: orange; display: none;">For a mega ultra smooth experience, use less than 132 LEDs per output!<br></div><!-- up to 240 fps on WS281x -->
     <hr style="width:260px">
     <div id="cfg">Config template: <input type="file" name="data2" accept=".json"> <input type="button" value="Apply" onclick="loadCfg(d.Sf.data2);"><br></div>
     <hr>
