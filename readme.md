@@ -1,4 +1,4 @@
- align="center">
+ <p align="center">
   <img src="/images/wled_logo_akemi.png">
   <a href="https://github.com/atuline/WLED/releases"><img src="https://img.shields.io/github/release/atuline/WLED.svg?style=flat-square"></a>
   <a href="https://raw.githubusercontent.com/atuline/WLED/master/LICENSE"><img src="https://img.shields.io/github/license/atuline/wled?color=blue&style=flat-square"></a>
