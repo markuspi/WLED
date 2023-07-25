@@ -108,8 +108,10 @@ See [here](https://kno.wled.ge/basics/compatible-hardware)!
 
 ## ✌️ Other
 
-Licensed under the MIT license
+WLED-SR is based on WLED 0.13.3
 Credits [here](https://kno.wled.ge/about/contributors/)!
+
+WLED-SR specific changes and enhancements require the GPLv3 license.
 
 Join the Discord server to discuss everything about WLED!
 
