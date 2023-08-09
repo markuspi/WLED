@@ -309,6 +309,35 @@ protected:
     i2s_pin_config_t _pinConfig;
 };
 
+class I2SExternal : public I2SSource {
+public:
+    I2SExternal(int sampleRate, int blockSize, int16_t lshift, uint32_t mask, int realSampleRate) 
+        : I2SSource(sampleRate, blockSize, lshift, mask), _realSampleRate(realSampleRate), _oversample(realSampleRate / sampleRate) {
+        _config.mode = i2s_mode_t(I2S_MODE_SLAVE | I2S_MODE_RX);
+        _config.sample_rate = realSampleRate;
+    }
+
+    void getSamples(float *buffer, uint16_t num_samples) override {
+        if (!_initialized) {
+            return;
+        }
+
+        uint16_t realNumSamples = num_samples * _oversample;
+        if (_tmpBuffer.size() < realNumSamples) {
+            _tmpBuffer.resize(realNumSamples);
+        }
+
+        I2SSource::getSamples(_tmpBuffer.data(), realNumSamples);
+        for (uint16_t i = 0, j = 0; i < num_samples; i++, j += _oversample) {
+            buffer[i] = _tmpBuffer[j];
+        }
+    }
+protected:
+    std::vector<float> _tmpBuffer;
+    int _realSampleRate;
+    int _oversample;
+};
+
 /* I2S microphone with master clock
    Our version of the IDF does not support setting master clock
    routing via the provided API, so we have to do it by hand

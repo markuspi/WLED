@@ -51,9 +51,10 @@ static volatile bool disableSoundProcessing = false;      // if true, sound proc
 
 constexpr i2s_port_t I2S_PORT = I2S_NUM_0;
 constexpr int BLOCK_SIZE = 128;
-constexpr int SAMPLE_RATE = 10240;            // Base sample rate in Hz - standard.                 Physical sample time -> 50ms
+//constexpr int SAMPLE_RATE = 10240;            // Base sample rate in Hz - standard.                 Physical sample time -> 50ms
+//constexpr int SAMPLE_RATE = 11025;              // 1/4 of 44100
 //constexpr int SAMPLE_RATE = 20480;            // Base sample rate in Hz - 20Khz is experimental.    Physical sample time -> 25ms
-//constexpr int SAMPLE_RATE = 22050;            // Base sample rate in Hz - 22Khz is a standard rate. Physical sample time -> 23ms
+constexpr int SAMPLE_RATE = 22050;            // Base sample rate in Hz - 22Khz is a standard rate. Physical sample time -> 23ms
 
 #define FFT_MIN_CYCLE 45                      // minimum time before FFT task is repeated. Must be less than time for reading 512 samples at SAMPLE_RATE.
 
@@ -690,7 +691,7 @@ void logAudio() {
 #ifdef MIC_LOGGER
   // Debugging functions for audio input and sound processing. Comment out the values you want to see
 
-  Serial.print("micReal:");    Serial.print(micDataReal);  Serial.print("\t");
+  Serial.print(">micReal:");    Serial.print(micDataReal);  Serial.print("\n");
   //Serial.print("micData:");    Serial.print(micData);     Serial.print("\t");
   //Serial.print("micDataSm:");  Serial.print(micDataSm);   Serial.print("\t");
   //Serial.print("micIn:");      Serial.print(micIn);       Serial.print("\t");
@@ -701,7 +702,7 @@ void logAudio() {
   //Serial.print("sampleMax:");  Serial.print(sampleMax);   Serial.print("\t");
   //Serial.print("samplePeak:");  Serial.print((samplePeak!=0) ? 128:0);   Serial.print("\t");
   //Serial.print("multAgc:");    Serial.print(multAgc, 4);  Serial.print("\t");
-  Serial.print("sampleAgc:");   Serial.print(sampleAgc);   Serial.print("\t");
+  Serial.print(">sampleAgc:");   Serial.print(sampleAgc);   Serial.print("\n");
   Serial.println(" ");
 
 #endif

@@ -50,6 +50,10 @@ void userSetup() {
       Serial.print("AS: I2S PDM Microphone - "); Serial.println(I2S_MIC_CHANNEL_TEXT);
       audioSource = new I2SPdmSource(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF);
       break;
+    case 6:
+      Serial.println("AS: External I2S");
+      audioSource = new I2SExternal(SAMPLE_RATE, BLOCK_SIZE, 0, 0xFFFFFFFF, 44100);
+      break;
     case 0:
     default:
       Serial.println("AS: Analog Microphone (left channel only).");
