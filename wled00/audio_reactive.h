@@ -25,7 +25,7 @@ static volatile bool disableSoundProcessing = false;      // if true, sound proc
 // ALL AUDIO INPUT PINS DEFINED IN wled.h AND CONFIGURABLE VIA UI
 
 // Comment/Uncomment to toggle usb serial debugging
-// #define MIC_LOGGER                   // MIC sampling & sound input debugging (serial plotter)
+#define MIC_LOGGER                   // MIC sampling & sound input debugging (serial plotter)
 // #define FFT_SAMPLING_LOG             // FFT result debugging
 // #define SR_DEBUG                     // generic SR DEBUG messages
 
@@ -691,7 +691,7 @@ void logAudio() {
 #ifdef MIC_LOGGER
   // Debugging functions for audio input and sound processing. Comment out the values you want to see
 
-  Serial.print(">micReal:");    Serial.print(micDataReal);  Serial.print("\n");
+  //Serial.print(">micReal:");    Serial.print(micDataReal);  Serial.print("\n");
   //Serial.print("micData:");    Serial.print(micData);     Serial.print("\t");
   //Serial.print("micDataSm:");  Serial.print(micDataSm);   Serial.print("\t");
   //Serial.print("micIn:");      Serial.print(micIn);       Serial.print("\t");
@@ -702,8 +702,11 @@ void logAudio() {
   //Serial.print("sampleMax:");  Serial.print(sampleMax);   Serial.print("\t");
   //Serial.print("samplePeak:");  Serial.print((samplePeak!=0) ? 128:0);   Serial.print("\t");
   //Serial.print("multAgc:");    Serial.print(multAgc, 4);  Serial.print("\t");
-  Serial.print(">sampleAgc:");   Serial.print(sampleAgc);   Serial.print("\n");
-  Serial.println(" ");
+  //Serial.print(">sampleAgc:");   Serial.print(sampleAgc);   Serial.print("\n");
+  Serial.print(">bb:"); Serial.println(boxBytesRead);
+  Serial.print(">bs:"); Serial.println(boxSample);
+  Serial.print(">bm:"); Serial.println(boxMin);
+  Serial.print(">bx:"); Serial.println(boxMax);
 
 #endif
 

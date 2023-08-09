@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include <Wire.h>
 #include "wled.h"
 #include <driver/i2s.h>
@@ -50,6 +51,11 @@
 #define I2S_MIC_CHANNEL I2S_CHANNEL_FMT_ONLY_LEFT
 #define I2S_MIC_CHANNEL_TEXT "left channel only."
 #endif
+
+size_t boxBytesRead = 0;
+I2S_datatype boxSample = 0;
+I2S_datatype boxMin = 0;
+I2S_datatype boxMax = 0;
 
 #ifndef MCLK_PIN
     int mclkPin = 0;
@@ -209,6 +215,7 @@ public:
     }
 
     virtual void getSamples(float *buffer, uint16_t num_samples) {
+        boxBytesRead = 0;
         if(_initialized) {
             esp_err_t err;
             size_t bytes_read = 0;        /* Counter variable to check if we actually got enough data */
@@ -223,6 +230,7 @@ public:
                 Serial.printf("Failed to get samples: %d\n", err);
                 return;
             }
+            boxBytesRead = bytes_read;
 
             // For correct operation, we need to read exactly sizeof(samples) bytes from i2s
             if(bytes_read != sizeof(newSamples)) {
@@ -230,8 +238,15 @@ public:
                 return;
             }
 
+            boxSample = newSamples[0];
+
+            boxMin = std::numeric_limits<I2S_datatype>::max();
+            boxMax = std::numeric_limits<I2S_datatype>::min();
+
             // Store samples in sample buffer and update DC offset
             for (int i = 0; i < num_samples; i++) {
+                if (newSamples[i] > boxMax) boxMax = newSamples[i];
+                if (newSamples[i] < boxMin) boxMin = newSamples[i];
 
                 if (_mask == 0x0FFF) {  // mask = 0x0FFF means we are in I2SAdcSource
                     I2S_unsigned_datatype rawData = * reinterpret_cast<I2S_unsigned_datatype *> (newSamples + i); // C++ acrobatics to get sample as "unsigned"
